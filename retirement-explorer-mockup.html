@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Retirement Scenario Explorer — UI Mockup</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f1f5f9;
+      color: #1e293b;
+      min-height: 100vh;
+      padding: 16px;
+    }
+
+    /* ── Header ── */
+    .app-header {
+      background: #0f172a;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 10px 10px 0 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .app-header h1 { font-size: 16px; font-weight: 600; letter-spacing: 0.02em; }
+    .app-header span { font-size: 12px; color: #94a3b8; }
+
+    /* ── Two-panel layout ── */
+    .app-body {
+      display: flex;
+      background: white;
+      border-radius: 0 0 10px 10px;
+      border: 1px solid #e2e8f0;
+      border-top: none;
+      min-height: calc(100vh - 80px);
+    }
+
+    /* ── LEFT PANEL ── */
+    .left-panel {
+      width: 38%;
+      border-right: 1px solid #e2e8f0;
+      padding: 20px;
+      background: #f8fafc;
+      border-radius: 0 0 0 10px;
+      overflow-y: auto;
+    }
+
+    .section-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #94a3b8;
+      margin-bottom: 8px;
+      margin-top: 18px;
+    }
+    .section-label:first-child { margin-top: 0; }
+
+    /* Scenario buttons */
+    .scenario-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+    .scenario-btn {
+      padding: 9px 14px;
+      border-radius: 7px;
+      border: 2px solid #e2e8f0;
+      background: white;
+      font-size: 13px;
+      font-weight: 500;
+      color: #475569;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.15s;
+    }
+    .scenario-btn.active {
+      border-color: #3b82f6;
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+    .scenario-btn .scenario-sub {
+      font-size: 11px;
+      color: #94a3b8;
+      font-weight: 400;
+      display: block;
+      margin-top: 1px;
+    }
+    .scenario-btn.active .scenario-sub { color: #93c5fd; }
+
+    /* Sliders */
+    .slider-row {
+      margin-bottom: 14px;
+    }
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 4px;
+    }
+    .slider-name { font-size: 12px; color: #64748b; font-weight: 500; }
+    .slider-value {
+      font-size: 14px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .slider-track {
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: #e2e8f0;
+      position: relative;
+      margin-bottom: 2px;
+    }
+    .slider-fill {
+      height: 100%;
+      border-radius: 2px;
+      background: #3b82f6;
+    }
+    .slider-thumb {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: white;
+      border: 2px solid #3b82f6;
+      position: absolute;
+      top: -5px;
+      transform: translateX(-50%);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+
+    /* SS segmented control */
+    .seg-control {
+      display: flex;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+    .seg-btn {
+      flex: 1;
+      padding: 7px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: #64748b;
+      background: white;
+      border: none;
+      cursor: pointer;
+    }
+    .seg-btn.active {
+      background: #0f172a;
+      color: white;
+    }
+
+    /* Number inputs */
+    .input-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .input-group {
+      flex: 1;
+    }
+    .input-group label {
+      display: block;
+      font-size: 11px;
+      color: #94a3b8;
+      margin-bottom: 3px;
+    }
+    .input-group .fake-input {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 7px 10px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #1e293b;
+    }
+
+    .note-text {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 16px;
+      font-style: italic;
+      text-align: center;
+      padding-top: 12px;
+      border-top: 1px solid #e2e8f0;
+    }
+
+    /* ── RIGHT PANEL ── */
+    .right-panel {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+      border-radius: 0 0 10px 0;
+    }
+
+    /* Metric cards */
+    .metrics-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .metric-card {
+      background: #0f172a;
+      color: white;
+      border-radius: 8px;
+      padding: 14px 12px;
+    }
+    .metric-card .m-label {
+      font-size: 10px;
+      color: #64748b;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .metric-card .m-value {
+      font-size: 24px;
+      font-weight: 800;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .metric-card .m-sub {
+      font-size: 10px;
+      color: #475569;
+    }
+    .text-red   { color: #ef4444; }
+    .text-amber { color: #f59e0b; }
+    .text-green { color: #22c55e; }
+    .text-blue  { color: #60a5fa; }
+    .text-white { color: #f8fafc; }
+
+    /* Status badge */
+    .status-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .badge-red    { background: rgba(239,68,68,0.15); color: #ef4444; }
+    .badge-amber  { background: rgba(245,158,11,0.15); color: #f59e0b; }
+    .badge-green  { background: rgba(34,197,94,0.15); color: #22c55e; }
+
+    /* Benefits table */
+    .benefits-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin-bottom: 16px;
+      font-size: 13px;
+    }
+    .benefits-card h3 {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #94a3b8;
+      margin-bottom: 10px;
+    }
+    .benefit-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 3px 0;
+      color: #475569;
+    }
+    .benefit-row.total {
+      border-top: 1px solid #cbd5e1;
+      margin-top: 6px;
+      padding-top: 8px;
+      font-weight: 700;
+      color: #1e293b;
+    }
+    .benefit-row.net {
+      color: #1e293b;
+      font-weight: 600;
+    }
+    .benefits-split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      align-items: start;
+    }
+    .adjusted-box {
+      background: #0f172a;
+      border-radius: 8px;
+      padding: 14px;
+      color: white;
+    }
+    .adjusted-box .adj-label { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+    .adjusted-box .adj-value { font-size: 22px; font-weight: 800; margin-bottom: 2px; }
+    .adjusted-box .adj-sub { font-size: 11px; color: #475569; }
+
+    /* Chart area */
+    .chart-card {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .chart-card h3 {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #94a3b8;
+      margin-bottom: 12px;
+    }
+    .chart-area {
+      height: 160px;
+      background: #f8fafc;
+      border-radius: 6px;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid #f1f5f9;
+    }
+    /* Fake chart lines */
+    .chart-area svg { width: 100%; height: 100%; }
+    .chart-legend {
+      display: flex;
+      gap: 16px;
+      margin-top: 8px;
+      font-size: 11px;
+      color: #64748b;
+    }
+    .legend-dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      margin-right: 4px;
+    }
+    .chart-disclaimer {
+      font-size: 10px;
+      color: #94a3b8;
+      margin-top: 6px;
+      font-style: italic;
+    }
+
+    /* Guardrails card */
+    .guardrails-card {
+      border: 2px solid #f59e0b;
+      border-radius: 8px;
+      padding: 12px 14px;
+      background: #fffbeb;
+      margin-bottom: 16px;
+      font-size: 12px;
+      color: #78350f;
+      line-height: 1.5;
+    }
+    .guardrails-card strong { color: #92400e; }
+
+    /* AI section */
+    .ai-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 14px 16px;
+    }
+    .ai-card h3 {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #94a3b8;
+      margin-bottom: 10px;
+    }
+    .ai-key-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .fake-password {
+      flex: 1;
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 13px;
+      color: #94a3b8;
+    }
+    .analyze-btn {
+      background: #0f172a;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .ai-output {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 12px;
+      font-size: 12px;
+      color: #475569;
+      line-height: 1.6;
+      min-height: 80px;
+    }
+    .ai-placeholder { color: #cbd5e1; font-style: italic; }
+
+    /* Config callout */
+    .config-callout {
+      background: #fff7ed;
+      border: 1px dashed #fdba74;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 11px;
+      color: #9a3412;
+      margin-bottom: 10px;
+    }
+    .config-callout strong { color: #7c2d12; }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <div class="app-header">
+    <h1>Retirement Scenario Explorer</h1>
+    <span>Powered by Morningstar 2025 Research</span>
+  </div>
+
+  <!-- BODY -->
+  <div class="app-body">
+
+    <!-- LEFT: INPUTS -->
+    <div class="left-panel">
+
+      <!-- Config callout — annotation for mockup only -->
+      <div class="config-callout">
+        <strong>⚙ Scenario config:</strong> Names &amp; defaults defined in a JSON block at top of file — swap in your own numbers.
+      </div>
+
+      <div class="section-label">Scenarios</div>
+      <div class="scenario-buttons">
+        <button class="scenario-btn active">
+          Scenario A: Base Case
+          <span class="scenario-sub">$4.8M · $215K/yr · Age 49</span>
+        </button>
+        <button class="scenario-btn">
+          Scenario B: Delayed Retirement
+          <span class="scenario-sub">$5.8M · $215K/yr · Age 51</span>
+        </button>
+        <button class="scenario-btn">
+          Scenario C: Relocation
+          <span class="scenario-sub">$5.0M · $175K/yr · Age 49</span>
+        </button>
+      </div>
+
+      <div class="section-label">Portfolio &amp; Spending</div>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-name">Portfolio Size</span>
+          <span class="slider-value">$4,800,000</span>
+        </div>
+        <div class="slider-track">
+          <div class="slider-fill" style="width: 38%"></div>
+          <div class="slider-thumb" style="left: 38%"></div>
+        </div>
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-name">Annual Spending</span>
+          <span class="slider-value">$215,000</span>
+        </div>
+        <div class="slider-track">
+          <div class="slider-fill" style="width: 37%"></div>
+          <div class="slider-thumb" style="left: 37%"></div>
+        </div>
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-name">Retirement Age</span>
+          <span class="slider-value">49</span>
+        </div>
+        <div class="slider-track">
+          <div class="slider-fill" style="width: 16%"></div>
+          <div class="slider-thumb" style="left: 16%"></div>
+        </div>
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-name">Equity Allocation</span>
+          <span class="slider-value">74%</span>
+        </div>
+        <div class="slider-track">
+          <div class="slider-fill" style="width: 74%"></div>
+          <div class="slider-thumb" style="left: 74%"></div>
+        </div>
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-name">Life Expectancy</span>
+          <span class="slider-value">92</span>
+        </div>
+        <div class="slider-track">
+          <div class="slider-fill" style="width: 68%"></div>
+          <div class="slider-thumb" style="left: 68%"></div>
+        </div>
+      </div>
+
+      <div class="section-label">Social Security</div>
+      <div class="seg-control">
+        <button class="seg-btn">62</button>
+        <button class="seg-btn">67</button>
+        <button class="seg-btn active">70</button>
+      </div>
+      <div class="input-row">
+        <div class="input-group">
+          <label>SS Annual Benefit (editable)</label>
+          <div class="fake-input">$53,000</div>
+        </div>
+      </div>
+
+      <div class="section-label">Other Government Income</div>
+      <div class="input-row">
+        <div class="input-group">
+          <label>CPP / Pension Annual</label>
+          <div class="fake-input">$15,000</div>
+        </div>
+        <div class="input-group">
+          <label>OAS / Other Annual</label>
+          <div class="fake-input">$7,500</div>
+        </div>
+      </div>
+
+      <p class="note-text">Defaults reflect one person's actual situation. All inputs editable.</p>
+    </div>
+
+    <!-- RIGHT: OUTPUTS -->
+    <div class="right-panel">
+
+      <!-- METRIC CARDS -->
+      <div class="metrics-row">
+        <div class="metric-card">
+          <div class="m-label">Your Rate</div>
+          <div class="m-value text-red">4.5%</div>
+          <div class="m-sub">$215K ÷ $4.8M</div>
+        </div>
+        <div class="metric-card">
+          <div class="m-label">Morningstar Safe Rate · 43-yr</div>
+          <div class="m-value text-blue">3.0%</div>
+          <div class="m-sub">74% eq · 40yr horizon</div>
+        </div>
+        <div class="metric-card">
+          <div class="m-label">Status</div>
+          <div class="m-value" style="margin-top: 4px;">
+            <span class="status-badge badge-red">⚠ Aggressive</span>
+          </div>
+          <div class="m-sub" style="margin-top: 6px;">1.5% above safe rate</div>
+        </div>
+        <div class="metric-card">
+          <div class="m-label">Bridge to SS</div>
+          <div class="m-value text-red">21 yrs</div>
+          <div class="m-sub">Highest-risk window</div>
+        </div>
+      </div>
+
+      <!-- BENEFITS TABLE + ADJUSTED RATE -->
+      <div class="benefits-card">
+        <h3>Government Income (from age 70)</h3>
+        <div class="benefits-split">
+          <div>
+            <div class="benefit-row"><span>Social Security</span><span>$53,000/yr</span></div>
+            <div class="benefit-row"><span>CPP / Pension</span><span>$15,000/yr</span></div>
+            <div class="benefit-row"><span>OAS / Other</span><span>$7,500/yr</span></div>
+            <div class="benefit-row total"><span>Total offset</span><span>$75,500/yr</span></div>
+          </div>
+          <div class="adjusted-box">
+            <div class="adj-label">Net Portfolio Draw after SS</div>
+            <div class="adj-value text-green">$139,500</div>
+            <div class="adj-label" style="margin-top: 8px;">Adjusted Rate</div>
+            <div class="adj-value text-green">2.9%</div>
+            <div class="adj-sub">
+              <span class="status-badge badge-green" style="font-size:11px;">✓ Safe</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CHART -->
+      <div class="chart-card">
+        <h3>Portfolio Projection — Age 49 to 92</h3>
+        <div class="chart-area">
+          <svg viewBox="0 0 600 160" preserveAspectRatio="none">
+            <!-- Grid lines -->
+            <line x1="0" y1="40" x2="600" y2="40" stroke="#e2e8f0" stroke-width="1"/>
+            <line x1="0" y1="80" x2="600" y2="80" stroke="#e2e8f0" stroke-width="1"/>
+            <line x1="0" y1="120" x2="600" y2="120" stroke="#e2e8f0" stroke-width="1"/>
+            <!-- Y-axis labels -->
+            <text x="6" y="38" font-size="9" fill="#94a3b8">$8M</text>
+            <text x="6" y="78" font-size="9" fill="#94a3b8">$4M</text>
+            <text x="6" y="118" font-size="9" fill="#94a3b8">$0</text>
+            <!-- $0 baseline -->
+            <line x1="0" y1="120" x2="600" y2="120" stroke="#ef4444" stroke-width="1" stroke-dasharray="4,3" opacity="0.5"/>
+            <!-- Bridge marker (SS kicks in at year 21, x≈300) -->
+            <line x1="300" y1="10" x2="300" y2="130" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4,3"/>
+            <text x="303" y="20" font-size="8" fill="#94a3b8">SS kicks in</text>
+            <!-- Optimistic line (7%) - green, slopes up from ~75px to ~20px -->
+            <polyline points="30,95 150,72 300,55 450,35 570,22"
+              fill="none" stroke="#22c55e" stroke-width="2.5"/>
+            <!-- Base case (5%) - blue, relatively flat then slightly down -->
+            <polyline points="30,95 150,88 300,82 450,78 570,72"
+              fill="none" stroke="#3b82f6" stroke-width="2.5"/>
+            <!-- Pessimistic (3%) - red, curves down and hits zero -->
+            <polyline points="30,95 150,105 300,115 390,120 390,120"
+              fill="none" stroke="#ef4444" stroke-width="2.5"/>
+            <!-- Starting point dot -->
+            <circle cx="30" cy="95" r="4" fill="#0f172a"/>
+          </svg>
+        </div>
+        <div class="chart-legend">
+          <span><span class="legend-dot" style="background:#22c55e"></span>Optimistic (7% real)</span>
+          <span><span class="legend-dot" style="background:#3b82f6"></span>Base Case (5% real)</span>
+          <span><span class="legend-dot" style="background:#ef4444"></span>Pessimistic (3% real)</span>
+        </div>
+        <p class="chart-disclaimer">Deterministic projections — actual sequence of returns matters more than averages. Early losses are disproportionately harmful.</p>
+      </div>
+
+      <!-- GUARDRAILS CALLOUT (shown when Marginal or Aggressive) -->
+      <div class="guardrails-card">
+        <strong>💡 Guardrails Approach:</strong> You're above the fixed-rate safe zone, but within range for a Guardrails strategy — accept ~10% spending cuts in down markets in exchange for a higher starting withdrawal rate. This works best when government income (SS, CPP) will eventually cover essential expenses, as it does in this scenario.
+      </div>
+
+      <!-- AI ANALYSIS -->
+      <div class="ai-card">
+        <h3>AI Analysis (Claude)</h3>
+        <div class="ai-key-row">
+          <div class="fake-password">sk-ant-••••••••••••••••••••••••••••••</div>
+          <button class="analyze-btn">Analyze This Scenario</button>
+        </div>
+        <div class="ai-output">
+          <span class="ai-placeholder">Analysis will appear here. Enter your Anthropic API key and click Analyze.</span>
+        </div>
+      </div>
+
+    </div><!-- end right panel -->
+  </div><!-- end app body -->
+
+</body>
+</html>

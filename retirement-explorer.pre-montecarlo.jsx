@@ -1,0 +1,913 @@
+import { useState, useMemo } from "react"
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip, Legend, ReferenceLine, ResponsiveContainer
+} from "recharts"
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INITIAL SCENARIO PRESETS
+// These are the starting saved slots — rename and overwrite them freely in the app.
+// Change these defaults here to customize what loads on first open.
+// ─────────────────────────────────────────────────────────────────────────────
+const INITIAL_SCENARIOS = [
+  {
+    label: "Scenario 1",
+    portfolio:      4_800_000,
+    spending:         215_000,
+    retirementAge:         49,
+    equityPct:             74,
+    lifeExpectancy:        92,
+    ssClaimAge:            70,
+    ssBenefit:         53_000,
+    cpp:               15_000,
+    oas:                7_500,
+  },
+  {
+    label: "Scenario 2",
+    portfolio:      5_800_000,
+    spending:         215_000,
+    retirementAge:         51,
+    equityPct:             55,
+    lifeExpectancy:        92,
+    ssClaimAge:            70,
+    ssBenefit:         53_000,
+    cpp:               15_000,
+    oas:                7_500,
+  },
+  {
+    label: "Scenario 3",
+    portfolio:      5_000_000,
+    spending:         175_000,
+    retirementAge:         49,
+    equityPct:             55,
+    lifeExpectancy:        92,
+    ssClaimAge:            70,
+    ssBenefit:         53_000,
+    cpp:               15_000,
+    oas:                7_500,
+  },
+]
+
+// SS benefit pre-fills when clicking a claiming age button
+const SS_BY_AGE = { 62: 25_000, 67: 41_500, 70: 53_000 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MORNINGSTAR 2025 SAFE WITHDRAWAL RATE TABLE (Exhibit 34)
+// 90% success rate, inflation-adjusted withdrawals, forward-looking assumptions
+// ─────────────────────────────────────────────────────────────────────────────
+const SWR = {
+  100: { 10: 8.4, 15: 5.8, 20: 4.6, 25: 3.8, 30: 3.4, 35: 3.2, 40: 3.0 },
+   90: { 10: 8.6, 15: 6.0, 20: 4.7, 25: 3.9, 30: 3.5, 35: 3.2, 40: 3.0 },
+   80: { 10: 8.8, 15: 6.1, 20: 4.9, 25: 4.1, 30: 3.6, 35: 3.3, 40: 3.1 },
+   70: { 10: 9.1, 15: 6.3, 20: 5.0, 25: 4.2, 30: 3.7, 35: 3.4, 40: 3.2 },
+   60: { 10: 9.3, 15: 6.5, 20: 5.2, 25: 4.3, 30: 3.8, 35: 3.4, 40: 3.2 },
+   50: { 10: 9.5, 15: 6.6, 20: 5.3, 25: 4.4, 30: 3.9, 35: 3.5, 40: 3.3 },
+   40: { 10: 9.7, 15: 6.7, 20: 5.3, 25: 4.4, 30: 3.9, 35: 3.5, 40: 3.2 },
+   30: { 10: 9.8, 15: 6.8, 20: 5.3, 25: 4.4, 30: 3.9, 35: 3.5, 40: 3.2 },
+   20: { 10: 9.8, 15: 6.8, 20: 5.3, 25: 4.4, 30: 3.8, 35: 3.4, 40: 3.1 },
+   10: { 10: 9.7, 15: 6.7, 20: 5.2, 25: 4.3, 30: 3.7, 35: 3.3, 40: 3.0 },
+    0: { 10: 9.6, 15: 6.5, 20: 5.0, 25: 4.1, 30: 3.5, 35: 3.0, 40: 2.7 },
+}
+
+function getSafeRate(equityPct, horizon) {
+  const eq = Math.max(0, Math.min(100, Math.round(equityPct / 10) * 10))
+  const row = SWR[eq]
+  const bands = [10, 15, 20, 25, 30, 35, 40]
+  const h = Math.max(10, Math.min(40, horizon))
+  const lo = bands.reduce((a, b) => (b <= h ? b : a), 10)
+  const hi = bands.find(b => b >= h) ?? 40
+  if (lo === hi) return row[lo]
+  const t = (h - lo) / (hi - lo)
+  return +(row[lo] + t * (row[hi] - row[lo])).toFixed(2)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CAPITAL MARKET ASSUMPTIONS (Morningstar forward-looking, real returns)
+// Source: Morningstar State of Retirement Income 2025
+// ─────────────────────────────────────────────────────────────────────────────
+const CMA = {
+  equity: 0.057,  // expected real return for equities
+  bond:   0.020,  // expected real return for fixed income
+  spread: 0.02,   // +/- spread for optimistic/pessimistic scenarios
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MORNINGSTAR WITHDRAWAL METHODS (Exhibit 15 — 40% equity / 30yr / 90% success)
+// Premium-over-base-case extrapolation for non-30yr horizons
+// ─────────────────────────────────────────────────────────────────────────────
+const METHODS = [
+  { id: "fixed",     name: "Fixed Real (Base Case)",     premium: 0,    std: 0,    spendEnd: "45/55", desc: "Withdraw a fixed inflation-adjusted amount each year. Simplest approach — no adjustments needed, but requires the lowest starting rate." },
+  { id: "forgo",     name: "Forgo Inflation After Loss",  premium: 0.40, std: 5.5,  spendEnd: "48/52", desc: "Skip the inflation increase in any year following a portfolio loss. Minimal income volatility for a meaningful rate boost." },
+  { id: "rmd",       name: "RMD Method",                  premium: 0.82, std: 43.9, spendEnd: "93/7",  desc: "Withdraw based on IRS life expectancy divisors. High income volatility — spending tracks the portfolio closely, leaving little bequest." },
+  { id: "guardrails",name: "Guardrails (Guyton-Klinger)",premium: 1.30, std: 28.9, spendEnd: "66/34", desc: "Cut spending 10% if rate exceeds 120% of initial; raise 10% if below 80%. Allows a high starting rate with structured adjustment rules." },
+  { id: "decline",   name: "Actual Spending Decline",     premium: 1.10, std: 0,    spendEnd: "46/54", desc: "Assumes real spending naturally declines ~2%/yr in retirement (the 'go-go, slow-go, no-go' pattern). No volatility, but front-loads spending." },
+  { id: "endowment", name: "Endowment (10yr Avg)",        premium: 1.80, std: 38.8, spendEnd: "58/42", desc: "Withdraw a fixed percentage of the 10-year rolling average portfolio value. Smooths volatility vs. constant percentage but still variable." },
+  { id: "constant",  name: "Constant % of Balance",       premium: 1.80, std: 35.0, spendEnd: "58/42", desc: "Withdraw a fixed percentage of the current portfolio each year. Income rises and falls with the market — can never run out, but spending is volatile." },
+  { id: "vanguard",  name: "Vanguard Floor/Ceiling",      premium: 1.20, std: 36.4, spendEnd: "59/41", desc: "Apply a fixed percentage, but cap annual changes: max +5% increase, max −2.5% decrease. Balances responsiveness with stability." },
+]
+
+function getMethodRate(method, equityPct, horizon) {
+  const baseRate = getSafeRate(equityPct, horizon)
+  return +(baseRate + method.premium).toFixed(2)
+}
+
+function getExpectedReturn(equityPct) {
+  const eq = equityPct / 100
+  return eq * CMA.equity + (1 - eq) * CMA.bond
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PORTFOLIO PROJECTION (deterministic, allocation-driven return scenarios)
+// ─────────────────────────────────────────────────────────────────────────────
+function buildProjection(inputs) {
+  const { portfolio, spending, retirementAge, lifeExpectancy, ssClaimAge, ssBenefit, cpp, oas, equityPct } = inputs
+  const totalBenefits = ssBenefit + cpp + oas
+  const years = lifeExpectancy - retirementAge
+  const bridge = ssClaimAge - retirementAge
+  const expected = getExpectedReturn(equityPct)
+  const RETURNS = {
+    pessimistic: expected - CMA.spread,
+    base:        expected,
+    optimistic:  expected + CMA.spread,
+  }
+  const vals = { pessimistic: portfolio, base: portfolio, optimistic: portfolio }
+  const data = [{ year: 0, age: retirementAge, ...vals }]
+
+  for (let y = 1; y <= years; y++) {
+    const age = retirementAge + y
+    const inflatedSpend = spending * Math.pow(1.025, y)
+    const benefitsYear = age >= ssClaimAge
+      ? totalBenefits * Math.pow(1.025, age - ssClaimAge)
+      : 0
+    const netWithdrawal = Math.max(0, inflatedSpend - benefitsYear)
+
+    // At the SS transition year, insert a phantom point showing where
+    // the portfolio would be WITHOUT benefits, so the line reaches the
+    // SS marker before bending. Use year - 0.01 so it sorts just before.
+    if (y === bridge && totalBenefits > 0) {
+      const phantom = { year: y - 0.01, age }
+      for (const [key, r] of Object.entries(RETURNS)) {
+        const prev = vals[key]
+        if (prev === null) { phantom[key] = null; continue }
+        const noBenefitWD = inflatedSpend
+        const next = prev * (1 + r) - noBenefitWD
+        phantom[key] = next <= 0 ? 0 : next
+      }
+      data.push(phantom)
+    }
+
+    const point = { year: y, age }
+    for (const [key, r] of Object.entries(RETURNS)) {
+      const prev = vals[key]
+      if (prev === null) { point[key] = null; continue }
+      const next = prev * (1 + r) - netWithdrawal
+      vals[key] = next <= 0 ? null : next
+      point[key] = vals[key] === null ? 0 : vals[key]
+    }
+    data.push(point)
+  }
+  return data
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS & CONSTANTS
+// ─────────────────────────────────────────────────────────────────────────────
+const fmtDollars = n => {
+  if (n == null) return "—"
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`
+  if (n >= 1_000)     return `$${(n / 1_000).toFixed(0)}K`
+  return `$${n.toFixed(0)}`
+}
+const fmtPct = n => `${n.toFixed(1)}%`
+
+const STATUS = {
+  safe:       { label: "✓ Safe",       color: "#22c55e", bg: "rgba(34,197,94,0.12)",  text: "Within safe withdrawal range" },
+  marginal:   { label: "~ Marginal",   color: "#f59e0b", bg: "rgba(245,158,11,0.12)", text: "Consider Guardrails approach" },
+  aggressive: { label: "⚠ Aggressive", color: "#ef4444", bg: "rgba(239,68,68,0.12)",  text: "Above safe withdrawal range" },
+}
+
+function classify(rate, safe) {
+  if (rate <= safe)       return "safe"
+  if (rate <= safe + 0.5) return "marginal"
+  return "aggressive"
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SHARED SUB-COMPONENTS (module-level — stable across renders)
+// ─────────────────────────────────────────────────────────────────────────────
+function SectionLabel({ children, mt = 18 }) {
+  return (
+    <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em",
+      textTransform: "uppercase", color: "#94a3b8", marginBottom: 8, marginTop: mt }}>
+      {children}
+    </div>
+  )
+}
+
+function MetricCard({ label, value, sub, valueColor = "#f8fafc", children, style: extraStyle }) {
+  return (
+    <div style={{ background: "#0f172a", borderRadius: 8, padding: "14px 12px", minWidth: 0, ...extraStyle }}>
+      <div style={{ fontSize: 10, color: "#64748b", letterSpacing: "0.06em",
+        textTransform: "uppercase", marginBottom: 6 }}>{label}</div>
+      {value && <div style={{ fontSize: 22, fontWeight: 800, color: valueColor, lineHeight: 1, marginBottom: 4 }}>{value}</div>}
+      {children}
+      {sub && <div style={{ fontSize: 11, color: "#475569", marginTop: 4 }}>{sub}</div>}
+    </div>
+  )
+}
+
+// Slider — lifted to module level to avoid re-creating the component type on every render.
+// Accepts value + onChange props instead of closing over parent state.
+function Slider({ label, value, onChange, min, max, step, fmt }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+        <span style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>{label}</span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>{fmt(value)}</span>
+      </div>
+      <input type="range" min={min} max={max} step={step} value={value}
+        onChange={e => onChange(Number(e.target.value))}
+        style={{ width: "100%", accentColor: "#3b82f6", cursor: "pointer" }} />
+    </div>
+  )
+}
+
+function Badge({ s, size = 13 }) {
+  const c = STATUS[s]
+  return (
+    <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: 20,
+      fontSize: size, fontWeight: 700, background: c.bg, color: c.color }}>
+      {c.label}
+    </span>
+  )
+}
+
+function ChartTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null
+  return (
+    <div style={{ background: "#0f172a", border: "1px solid #334155",
+      borderRadius: 6, padding: "8px 12px", fontSize: 12 }}>
+      <div style={{ color: "#94a3b8", marginBottom: 4 }}>Year {label}</div>
+      {payload.map(p => p.value != null && (
+        <div key={p.dataKey} style={{ color: p.color, marginBottom: 2 }}>
+          {p.name}: {fmtDollars(p.value)}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN COMPONENT
+// ─────────────────────────────────────────────────────────────────────────────
+export default function RetirementExplorer() {
+  const [inp, setInp]               = useState({ ...INITIAL_SCENARIOS[0] })
+  const [scenarios, setScenarios]   = useState(INITIAL_SCENARIOS.map(s => ({ ...s })))
+  const [activeSlot, setActiveSlot] = useState(0)
+  const [editingIdx, setEditingIdx] = useState(null)  // which slot name is being edited
+  const [editingVal, setEditingVal] = useState("")
+  const [savedIdx, setSavedIdx]     = useState(null)  // brief "Saved!" feedback
+  const [activeTab, setActiveTab]   = useState("analysis")  // "analysis" | "methods"
+  const [apiKey, setApiKey]         = useState("")
+  const [analysis, setAnalysis]     = useState("")
+  const [analyzing, setAnalyzing]   = useState(false)
+  const [apiError, setApiError]     = useState("")
+
+  // ── Scenario slot actions ──────────────────────────────────────────────────
+
+  function loadSlot(i) {
+    setInp({ ...scenarios[i] })
+    setActiveSlot(i)
+    setAnalysis("")
+    setApiError("")
+  }
+
+  function saveToSlot(i, e) {
+    e.stopPropagation()
+    setScenarios(prev => prev.map((s, idx) =>
+      idx === i ? { ...inp, label: s.label } : s
+    ))
+    setActiveSlot(i)
+    setSavedIdx(i)
+    setTimeout(() => setSavedIdx(null), 1800)
+  }
+
+  function startRename(i, e) {
+    e.stopPropagation()
+    setEditingIdx(i)
+    setEditingVal(scenarios[i].label)
+  }
+
+  function commitRename(i) {
+    if (editingVal.trim()) {
+      setScenarios(prev => prev.map((s, idx) =>
+        idx === i ? { ...s, label: editingVal.trim() } : s
+      ))
+    }
+    setEditingIdx(null)
+  }
+
+  // ── Input helpers ──────────────────────────────────────────────────────────
+
+  function set(key, val) {
+    setInp(prev => ({ ...prev, [key]: val }))
+    setActiveSlot(null)
+  }
+
+  function setSsAge(age) {
+    setInp(prev => ({ ...prev, ssClaimAge: age, ssBenefit: SS_BY_AGE[age] ?? prev.ssBenefit }))
+    setActiveSlot(null)
+  }
+
+  // ── Derived values ─────────────────────────────────────────────────────────
+  const horizon        = inp.lifeExpectancy - inp.retirementAge
+  const withdrawalRate = (inp.spending / inp.portfolio) * 100
+  const safeRate       = getSafeRate(inp.equityPct, horizon)
+  const bridge         = inp.ssClaimAge - inp.retirementAge
+  const totalBenefits  = inp.ssBenefit + inp.cpp + inp.oas
+  const netDraw        = Math.max(0, inp.spending - totalBenefits)
+  const adjustedRate   = (netDraw / inp.portfolio) * 100
+  const status         = classify(withdrawalRate, safeRate)
+  const adjStatus      = classify(adjustedRate, safeRate)
+  const bridgeColor    = bridge > 15 ? "#ef4444" : bridge >= 10 ? "#f59e0b" : "#22c55e"
+  const expectedReturn = getExpectedReturn(inp.equityPct)
+  const returnPess     = ((expectedReturn - CMA.spread) * 100).toFixed(1)
+  const returnBase     = (expectedReturn * 100).toFixed(1)
+  const returnOpt      = ((expectedReturn + CMA.spread) * 100).toFixed(1)
+  const chartData      = useMemo(() => buildProjection(inp), [inp])
+  const showGuardrails = status === "marginal" || status === "aggressive"
+
+  // ── AI Analysis ────────────────────────────────────────────────────────────
+  async function handleAnalyze() {
+    if (!apiKey.trim()) { setApiError("Please enter your API key above."); return }
+    setAnalyzing(true)
+    setAnalysis("")
+    setApiError("")
+
+    const scenarioName = activeSlot !== null ? scenarios[activeSlot].label : "Custom"
+    const prompt = `You are a retirement planning analyst grounding your analysis in Morningstar's State of Retirement Income 2025 research.
+
+The user has the following retirement scenario (named "${scenarioName}"):
+- Portfolio: $${inp.portfolio.toLocaleString()}
+- Annual spending: $${inp.spending.toLocaleString()}
+- Retirement age: ${inp.retirementAge}
+- Planning horizon: ${horizon} years (to age ${inp.lifeExpectancy})
+- Equity allocation: ${inp.equityPct}% (${100-inp.equityPct}% bonds)
+- Expected real return for this allocation: ${returnBase}% (${returnPess}% pessimistic / ${returnOpt}% optimistic)
+- Morningstar safe withdrawal rate for this profile: ${safeRate.toFixed(1)}%
+- User's actual withdrawal rate: ${withdrawalRate.toFixed(1)}%
+- Status: ${status}
+
+Government income (starting at age ${inp.ssClaimAge}):
+- Social Security: $${inp.ssBenefit.toLocaleString()}/year
+- CPP/Pension: $${inp.cpp.toLocaleString()}/year
+- OAS/Other: $${inp.oas.toLocaleString()}/year
+- Total: $${totalBenefits.toLocaleString()}/year
+- Bridge period (no govt income): ${bridge} years
+- Net portfolio draw after benefits: $${netDraw.toLocaleString()}/year (${adjustedRate.toFixed(1)}%)
+
+Write a 2–3 paragraph plain-language analysis of this scenario. Cover:
+1. Whether the withdrawal rate is safe for this specific time horizon (not just "30 years"), and what the bridge period risk looks like
+2. How the government benefits transform the long-run picture
+3. One practical insight or consideration most people overlook in this specific scenario
+
+Be direct and specific. No boilerplate. Reference actual numbers. Do not give investment advice or say "consult a financial advisor."`
+
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": apiKey.trim(),
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6",
+          max_tokens: 650,
+          temperature: 0.3,
+          messages: [{ role: "user", content: prompt }],
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error?.message ?? `HTTP ${res.status}`)
+      setAnalysis(data.content[0].text)
+    } catch (err) {
+      setApiError(`Error: ${err.message}`)
+    } finally {
+      setAnalyzing(false)
+    }
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+  return (
+    <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      background: "#f1f5f9", minHeight: "100vh", padding: 16 }}>
+
+      {/* Header */}
+      <div style={{ background: "#0f172a", color: "white", padding: "12px 20px",
+        borderRadius: "10px 10px 0 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <h1 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>Retirement Scenario Explorer</h1>
+        <span style={{ fontSize: 12, color: "#94a3b8" }}>Morningstar State of Retirement Income 2025</span>
+      </div>
+
+      {/* Two-panel body */}
+      <div style={{ display: "flex", background: "white", border: "1px solid #e2e8f0",
+        borderTop: "none", borderRadius: "0 0 10px 10px", minHeight: "calc(100vh - 80px)" }}>
+
+        {/* ══════════════════════════════════════════════════════════════
+            LEFT PANEL
+            ══════════════════════════════════════════════════════════════ */}
+        <div style={{ width: "37%", borderRight: "1px solid #e2e8f0", padding: 20,
+          background: "#f8fafc", borderRadius: "0 0 0 10px", overflowY: "auto" }}>
+
+          {/* ── Scenario save slots ── */}
+          <SectionLabel mt={0}>Saved Scenarios</SectionLabel>
+          <p style={{ fontSize: 11, color: "#94a3b8", marginBottom: 10, lineHeight: 1.5 }}>
+            Click a slot to load it. Adjust inputs below, then save back to any slot. Rename by clicking the pencil.
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 4 }}>
+            {scenarios.map((s, i) => {
+              const isActive = activeSlot === i
+              const isSaved  = savedIdx === i
+              return (
+                <div key={i} style={{
+                  borderRadius: 8,
+                  border: isActive ? "2px solid #3b82f6" : "2px solid #e2e8f0",
+                  background: isActive ? "#eff6ff" : "white",
+                  overflow: "hidden",
+                  transition: "border-color 0.15s",
+                }}>
+                  {/* Load row — click to load */}
+                  <button onClick={() => loadSlot(i)} style={{
+                    width: "100%", padding: "10px 12px 6px", textAlign: "left",
+                    cursor: "pointer", background: "transparent", border: "none",
+                  }}>
+                    {/* Name + rename icon */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                      {editingIdx === i ? (
+                        <input
+                          autoFocus
+                          value={editingVal}
+                          onClick={e => e.stopPropagation()}
+                          onChange={e => setEditingVal(e.target.value)}
+                          onBlur={() => commitRename(i)}
+                          onKeyDown={e => { if (e.key === "Enter") commitRename(i) }}
+                          style={{ flex: 1, fontSize: 13, fontWeight: 600, padding: "1px 5px",
+                            border: "1px solid #3b82f6", borderRadius: 4, outline: "none",
+                            color: "#0f172a" }}
+                        />
+                      ) : (
+                        <span style={{ fontSize: 13, fontWeight: 600,
+                          color: isActive ? "#1d4ed8" : "#1e293b", flex: 1 }}>
+                          {s.label}
+                        </span>
+                      )}
+                      <span
+                        title="Rename"
+                        onClick={e => startRename(i, e)}
+                        style={{ fontSize: 13, color: "#cbd5e1", cursor: "pointer",
+                          lineHeight: 1, padding: "0 2px",
+                          ":hover": { color: "#64748b" } }}
+                      >✎</span>
+                    </div>
+                    {/* Snapshot values */}
+                    <div style={{ fontSize: 11, color: isActive ? "#3b82f6" : "#94a3b8" }}>
+                      {fmtDollars(s.portfolio)} · ${(s.spending / 1000).toFixed(0)}K/yr · Age {s.retirementAge} · {s.equityPct}% eq
+                    </div>
+                  </button>
+
+                  {/* Save-to-slot row */}
+                  <div style={{ padding: "4px 12px 8px", display: "flex", justifyContent: "flex-end" }}>
+                    <button
+                      onClick={e => saveToSlot(i, e)}
+                      title="Overwrite this slot with your current inputs"
+                      style={{
+                        fontSize: 10, fontWeight: 600, cursor: "pointer",
+                        background: "none", border: "none", padding: "2px 6px",
+                        borderRadius: 4,
+                        color: isSaved ? "#22c55e" : "#94a3b8",
+                      }}
+                    >
+                      {isSaved ? "✓ Saved!" : "↓ Save current inputs here"}
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* ── Example values callout ── */}
+          <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 6,
+            padding: "8px 12px", marginTop: 14, marginBottom: 10, fontSize: 11,
+            color: "#1e40af", lineHeight: 1.6 }}>
+            The saved scenarios contain <strong>example values</strong> to illustrate different retirement
+            profiles. Adjust all inputs freely — nothing here is real financial advice.
+          </div>
+
+          {/* ── Sliders ── */}
+          <SectionLabel>Portfolio &amp; Spending</SectionLabel>
+          <Slider label="Portfolio Size"    value={inp.portfolio}      onChange={v => set("portfolio", v)}      min={1_000_000} max={10_000_000} step={25_000}  fmt={fmtDollars} />
+          <Slider label="Annual Spending"   value={inp.spending}       onChange={v => set("spending", v)}       min={50_000}    max={500_000}    step={5_000}   fmt={v => `$${(v/1000).toFixed(0)}K`} />
+          <Slider label="Retirement Age"    value={inp.retirementAge}  onChange={v => set("retirementAge", v)}  min={45}        max={70}         step={1}       fmt={v => v} />
+          <Slider label="Equity / Bond Split" value={inp.equityPct}      onChange={v => set("equityPct", v)}      min={0}         max={100}        step={10}      fmt={v => `${v}% / ${100-v}%`} />
+          <div style={{ fontSize: 10, color: "#94a3b8", marginTop: -8, marginBottom: 12, lineHeight: 1.4 }}>
+            Morningstar models two asset classes: equities ({(CMA.equity*100).toFixed(1)}% real) and
+            bonds ({(CMA.bond*100).toFixed(1)}% real). Cash is not modeled separately.
+          </div>
+          <Slider label="Life Expectancy"   value={inp.lifeExpectancy} onChange={v => set("lifeExpectancy", v)} min={75}        max={100}        step={1}       fmt={v => v} />
+          {horizon > 40 && (
+            <div style={{ background: "#fef3c7", border: "1px solid #fcd34d", borderRadius: 6,
+              padding: "6px 10px", marginTop: -6, marginBottom: 10, fontSize: 11,
+              color: "#92400e", lineHeight: 1.5 }}>
+              ⚠ Planning horizon is {horizon} years. Morningstar data caps at 40 years — rates
+              beyond that are extrapolated and less reliable.
+            </div>
+          )}
+
+          {/* ── Social Security ── */}
+          <SectionLabel>Social Security</SectionLabel>
+          <div style={{ display: "flex", border: "1px solid #e2e8f0", borderRadius: 6,
+            overflow: "hidden", marginBottom: 10 }}>
+            {[62, 67, 70].map(age => (
+              <button key={age} onClick={() => setSsAge(age)} style={{
+                flex: 1, padding: "8px", textAlign: "center", fontSize: 13,
+                fontWeight: 600, cursor: "pointer", border: "none",
+                background: inp.ssClaimAge === age ? "#0f172a" : "white",
+                color: inp.ssClaimAge === age ? "white" : "#64748b",
+              }}>Claim at {age}</button>
+            ))}
+          </div>
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ fontSize: 11, color: "#94a3b8", display: "block", marginBottom: 3 }}>
+              SS Annual Benefit (editable)
+            </label>
+            <input type="number" value={inp.ssBenefit}
+              onChange={e => set("ssBenefit", Number(e.target.value))}
+              style={{ width: "100%", background: "white", border: "1px solid #e2e8f0",
+                borderRadius: 6, padding: "7px 10px", fontSize: 13, fontWeight: 600 }} />
+          </div>
+
+          {/* ── Other government income ── */}
+          <SectionLabel>Other Government Income</SectionLabel>
+          <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
+            {[["CPP / Pension Annual", "cpp"], ["OAS / Other Annual", "oas"]].map(([lbl, key]) => (
+              <div key={key} style={{ flex: 1 }}>
+                <label style={{ fontSize: 11, color: "#94a3b8", display: "block", marginBottom: 3 }}>{lbl}</label>
+                <input type="number" value={inp[key]}
+                  onChange={e => set(key, Number(e.target.value))}
+                  style={{ width: "100%", background: "white", border: "1px solid #e2e8f0",
+                    borderRadius: 6, padding: "7px 10px", fontSize: 13, fontWeight: 600 }} />
+              </div>
+            ))}
+          </div>
+
+          <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 16, fontStyle: "italic",
+            textAlign: "center", paddingTop: 12, borderTop: "1px solid #e2e8f0" }}>
+            All inputs editable. Save any configuration to a slot above.
+          </p>
+        </div>
+
+        {/* ══════════════════════════════════════════════════════════════
+            RIGHT PANEL
+            ══════════════════════════════════════════════════════════════ */}
+        <div style={{ flex: 1, padding: 20, overflowY: "auto" }}>
+
+          {/* ── Tab strip ── */}
+          <div style={{ display: "flex", gap: 0, marginBottom: 16, borderBottom: "2px solid #e2e8f0" }}>
+            {[["analysis", "Scenario Analysis"], ["methods", "Compare Methods"]].map(([key, label]) => (
+              <button key={key} onClick={() => setActiveTab(key)} style={{
+                padding: "8px 20px", fontSize: 13, fontWeight: 600, cursor: "pointer",
+                border: "none", borderBottom: activeTab === key ? "2px solid #3b82f6" : "2px solid transparent",
+                marginBottom: -2, background: "transparent",
+                color: activeTab === key ? "#1d4ed8" : "#94a3b8",
+              }}>{label}</button>
+            ))}
+          </div>
+
+          {/* ═══ ANALYSIS TAB ═══ */}
+          {activeTab === "analysis" && <>
+
+          {/* ── Bridge period card — full width, highest visual weight ── */}
+          <div style={{ marginBottom: 10 }}>
+            <MetricCard
+              label="Bridge Period · highest-risk window · no government income"
+              style={{ display: "flex", alignItems: "center", gap: 24, padding: "16px 20px" }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
+                <div>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: bridgeColor, lineHeight: 1 }}>
+                    {bridge} years
+                  </div>
+                  <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
+                    Age {inp.retirementAge} → {inp.ssClaimAge}
+                  </div>
+                </div>
+                <div style={{ fontSize: 12, color: "#94a3b8", maxWidth: 340, lineHeight: 1.5 }}>
+                  During this window you draw <strong style={{ color: "#f8fafc" }}>{fmtDollars(inp.spending)}/yr</strong> entirely
+                  from the portfolio. After age {inp.ssClaimAge}, government income offsets{" "}
+                  <strong style={{ color: "#f8fafc" }}>{fmtDollars(totalBenefits)}/yr</strong>.
+                </div>
+              </div>
+            </MetricCard>
+          </div>
+
+          {/* ── Metric cards ── */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 16 }}>
+            <MetricCard
+              label={`During Bridge · before benefits`}
+              value={fmtPct(withdrawalRate)}
+              sub={`${fmtDollars(inp.spending)} ÷ ${fmtDollars(inp.portfolio)}`}
+              valueColor={STATUS[status].color}
+            />
+            <MetricCard
+              label={`Safe Rate · ${horizon}yr horizon`}
+              value={fmtPct(safeRate)}
+              sub="Morningstar 2025 · 90% success"
+              valueColor="#60a5fa"
+            />
+            <MetricCard label="Status">
+              <div style={{ marginTop: 4, marginBottom: 6 }}><Badge s={status} size={14} /></div>
+              <div style={{ fontSize: 11, color: "#475569" }}>{STATUS[status].text}</div>
+            </MetricCard>
+          </div>
+
+          {/* ── Government benefits offset ── */}
+          <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0",
+            borderRadius: 8, padding: "14px 16px", marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
+              textTransform: "uppercase", color: "#94a3b8", marginBottom: 10 }}>
+              Government Income (from age {inp.ssClaimAge})
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
+              <div style={{ fontSize: 13 }}>
+                {[["Social Security", inp.ssBenefit], ["CPP / Pension", inp.cpp], ["OAS / Other", inp.oas]].map(([lbl, val]) => (
+                  <div key={lbl} style={{ display: "flex", justifyContent: "space-between",
+                    padding: "4px 0", color: "#475569", borderBottom: "1px solid #f1f5f9" }}>
+                    <span>{lbl}</span><span>${val.toLocaleString()}/yr</span>
+                  </div>
+                ))}
+                <div style={{ display: "flex", justifyContent: "space-between",
+                  paddingTop: 8, marginTop: 4, fontWeight: 700, color: "#1e293b" }}>
+                  <span>Total offset</span><span>${totalBenefits.toLocaleString()}/yr</span>
+                </div>
+              </div>
+              <div style={{ background: "#0f172a", borderRadius: 8, padding: 14 }}>
+                <div style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 3 }}>
+                  After Benefits Begin · age {inp.ssClaimAge}+
+                </div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: STATUS[adjStatus].color, marginBottom: 10 }}>
+                  ${netDraw.toLocaleString()}/yr
+                </div>
+                <div style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 3 }}>Adjusted Withdrawal Rate</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: STATUS[adjStatus].color, marginBottom: 8 }}>
+                  {fmtPct(adjustedRate)}
+                </div>
+                <Badge s={adjStatus} size={11} />
+              </div>
+            </div>
+          </div>
+
+          {/* ── Portfolio projection chart ── */}
+          <div style={{ background: "white", border: "1px solid #e2e8f0",
+            borderRadius: 8, padding: 16, marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
+              textTransform: "uppercase", color: "#94a3b8", marginBottom: 12 }}>
+              Portfolio Projection — Age {inp.retirementAge} to {inp.lifeExpectancy}
+            </div>
+            <ResponsiveContainer width="100%" height={190}>
+              <LineChart data={chartData} margin={{ top: 4, right: 12, left: 4, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="year" type="number" tick={{ fontSize: 10, fill: "#94a3b8" }}
+                  tickFormatter={v => Number.isInteger(v) ? `Yr ${v}` : ""}
+                  domain={[0, horizon]}
+                  ticks={Array.from({ length: Math.floor(horizon / Math.max(1, Math.ceil(horizon / 8))) + 1 }, (_, i) => i * Math.max(1, Math.ceil(horizon / 8))).filter(v => v <= horizon)} />
+                <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }}
+                  tickFormatter={v => `$${(v / 1_000_000).toFixed(1)}M`} width={48} />
+                <Tooltip content={<ChartTooltip />} />
+                <ReferenceLine y={0} stroke="#ef4444" strokeDasharray="4 3" strokeOpacity={0.4} />
+                <ReferenceLine x={bridge} stroke="#94a3b8" strokeDasharray="4 3"
+                  label={{ value: "SS kicks in", position: "insideTopRight", fontSize: 9, fill: "#94a3b8" }} />
+                <Line type="linear" dataKey="optimistic" name={`Optimistic (${returnOpt}% real)`}
+                  stroke="#22c55e" strokeWidth={2.5} dot={false} connectNulls={false} />
+                <Line type="linear" dataKey="base" name={`Expected (${returnBase}% real)`}
+                  stroke="#3b82f6" strokeWidth={2.5} dot={false} connectNulls={false} />
+                <Line type="linear" dataKey="pessimistic" name={`Pessimistic (${returnPess}% real)`}
+                  stroke="#ef4444" strokeWidth={2.5} dot={false} connectNulls={false} />
+                <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} />
+              </LineChart>
+            </ResponsiveContainer>
+            <p style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic", marginTop: 6 }}>
+              Returns derived from equity allocation: {inp.equityPct}% equities ({(CMA.equity*100).toFixed(1)}% real)
+              + {100-inp.equityPct}% bonds ({(CMA.bond*100).toFixed(1)}% real) = {returnBase}% expected ±{(CMA.spread*100).toFixed(0)}%.
+              End-of-year withdrawal convention. Actual sequence of returns matters more than averages —
+              early losses are disproportionately harmful and not captured here.
+            </p>
+          </div>
+
+          {/* ── Methods hint ── */}
+          <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 6,
+            padding: "8px 14px", marginBottom: 16, fontSize: 12, color: "#64748b", display: "flex",
+            alignItems: "center", justifyContent: "space-between" }}>
+            <span>This analysis uses the <strong style={{ color: "#1e293b" }}>Fixed Real</strong> withdrawal method (constant inflation-adjusted spending).</span>
+            <button onClick={() => setActiveTab("methods")} style={{ background: "none", border: "none",
+              color: "#3b82f6", fontWeight: 600, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}>
+              Compare all 8 strategies →
+            </button>
+          </div>
+
+          {/* ── Guardrails callout (conditional) ── */}
+          {showGuardrails && (
+            <div style={{ border: "2px solid #f59e0b", borderRadius: 8, padding: "12px 14px",
+              background: "#fffbeb", marginBottom: 16, fontSize: 12, color: "#78350f", lineHeight: 1.6 }}>
+              <strong>💡 Guardrails Approach:</strong> You're above the fixed safe rate, but potentially
+              within range for a Guardrails strategy — commit to ~10% spending cuts if your portfolio
+              drops 20%+ in exchange for a higher starting withdrawal rate (~{fmtPct(safeRate + 0.65)}).
+              This works best when government income will eventually cover a meaningful share of
+              essential expenses, as it does here once SS begins.
+            </div>
+          )}
+
+          {/* ── AI Analysis ── */}
+          <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "14px 16px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
+                textTransform: "uppercase", color: "#94a3b8" }}>AI Analysis — Power User</div>
+              <span style={{ fontSize: 10, background: "#e2e8f0", color: "#64748b",
+                padding: "2px 8px", borderRadius: 10, fontWeight: 600 }}>Optional</span>
+            </div>
+            <label style={{ fontSize: 12, color: "#1e293b", fontWeight: 600, display: "block", marginBottom: 5 }}>
+              Your Anthropic API Key
+            </label>
+            <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+              <input type="password" value={apiKey} placeholder="sk-ant-..."
+                onChange={e => { setApiKey(e.target.value); setApiError("") }}
+                style={{ flex: 1, background: "white", border: "1px solid #e2e8f0",
+                  borderRadius: 6, padding: "8px 10px", fontSize: 13 }} />
+              <button onClick={handleAnalyze} disabled={analyzing} style={{
+                background: analyzing ? "#475569" : "#0f172a", color: "white",
+                border: "none", borderRadius: 6, padding: "8px 16px",
+                fontSize: 13, fontWeight: 600,
+                cursor: analyzing ? "not-allowed" : "pointer", whiteSpace: "nowrap",
+              }}>
+                {analyzing ? "Analyzing…" : "Analyze"}
+              </button>
+            </div>
+            <p style={{ fontSize: 11, color: "#94a3b8", marginBottom: 10, lineHeight: 1.6 }}>
+              Requires an Anthropic API key — separate from a Claude.ai subscription.{" "}
+              <a href="https://console.anthropic.com" target="_blank" rel="noreferrer" style={{ color: "#3b82f6" }}>
+                Get one at console.anthropic.com →
+              </a>{" "}
+              Keys start with{" "}
+              <code style={{ background: "#e2e8f0", padding: "1px 4px", borderRadius: 3, fontSize: 10 }}>sk-ant-</code>.
+              {" "}Not stored anywhere.
+            </p>
+            {apiError && (
+              <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid #ef4444",
+                borderRadius: 6, padding: "8px 12px", fontSize: 12, color: "#dc2626", marginBottom: 8 }}>
+                {apiError}
+              </div>
+            )}
+            <div style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: 6,
+              padding: 12, fontSize: 13, color: "#475569", lineHeight: 1.7, minHeight: 88 }}>
+              {analysis
+                ? <span style={{ whiteSpace: "pre-wrap" }}>{analysis}</span>
+                : <span style={{ color: "#cbd5e1", fontStyle: "italic" }}>
+                    Analysis will appear here. The calculator above works fully without an API key.
+                  </span>
+              }
+            </div>
+          </div>
+
+          </>}
+
+          {/* ═══ COMPARE METHODS TAB ═══ */}
+          {activeTab === "methods" && <>
+
+            {/* Intro */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", marginBottom: 6 }}>
+                Withdrawal Strategy Comparison
+              </div>
+              <p style={{ fontSize: 12, color: "#64748b", lineHeight: 1.6, marginBottom: 8 }}>
+                Eight withdrawal methods from Morningstar's <em>State of Retirement Income 2025</em>,
+                estimated for your current inputs: {inp.equityPct}% equity, {horizon}-year horizon.
+                Rates are the maximum starting withdrawal rate at 90% success probability.
+              </p>
+              <div style={{ background: "#fef3c7", border: "1px solid #fcd34d", borderRadius: 6,
+                padding: "8px 12px", fontSize: 11, color: "#92400e", lineHeight: 1.5 }}>
+                Rates for non-base-case methods are estimated via premium extrapolation from Morningstar's
+                30-year / 40% equity data. This is an approximation — actual rates at your horizon
+                may differ. Monte Carlo simulation (v2) will replace this with direct computation.
+              </div>
+            </div>
+
+            {/* Summary cards */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 16 }}>
+              <MetricCard
+                label="Your Withdrawal Rate"
+                value={fmtPct(withdrawalRate)}
+                sub={`${fmtDollars(inp.spending)}/yr`}
+                valueColor={STATUS[status].color}
+              />
+              <MetricCard
+                label={`Base Safe Rate · ${horizon}yr`}
+                value={fmtPct(safeRate)}
+                sub="Fixed Real method"
+                valueColor="#60a5fa"
+              />
+              <MetricCard label="Methods in Range">
+                <div style={{ fontSize: 22, fontWeight: 800, color: "#22c55e", lineHeight: 1, marginBottom: 4 }}>
+                  {METHODS.filter(m => getMethodRate(m, inp.equityPct, horizon) >= withdrawalRate).length} of {METHODS.length}
+                </div>
+                <div style={{ fontSize: 11, color: "#475569" }}>
+                  strategies can support your spending
+                </div>
+              </MetricCard>
+            </div>
+
+            {/* Methods table */}
+            <div style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: 8, overflow: "hidden" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr",
+                gap: 0, padding: "10px 14px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0",
+                fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "#94a3b8" }}>
+                <div>Strategy</div>
+                <div style={{ textAlign: "right" }}>Est. Safe Rate</div>
+                <div style={{ textAlign: "right" }}>Year-1 Withdrawal</div>
+                <div style={{ textAlign: "right" }}>Income Volatility</div>
+                <div style={{ textAlign: "right" }}>Spend/Bequest</div>
+              </div>
+
+              {METHODS.map((m, i) => {
+                const mRate = getMethodRate(m, inp.equityPct, horizon)
+                const yr1 = (mRate / 100) * inp.portfolio
+                const isBase = m.premium === 0
+                const canSupport = mRate >= withdrawalRate
+                return (
+                  <div key={m.id} style={{
+                    display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr",
+                    gap: 0, padding: "12px 14px", alignItems: "start",
+                    borderBottom: i < METHODS.length - 1 ? "1px solid #f1f5f9" : "none",
+                    background: canSupport ? "rgba(34,197,94,0.04)" : "transparent",
+                  }}>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{m.name}</span>
+                        {isBase && <span style={{ fontSize: 9, background: "#e2e8f0", color: "#64748b",
+                          padding: "1px 6px", borderRadius: 8, fontWeight: 600 }}>BASE</span>}
+                      </div>
+                      <div style={{ fontSize: 11, color: "#94a3b8", lineHeight: 1.5 }}>{m.desc}</div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 15, fontWeight: 800,
+                        color: canSupport ? "#22c55e" : withdrawalRate <= mRate + 0.5 ? "#f59e0b" : "#ef4444" }}>
+                        {mRate.toFixed(1)}%
+                      </div>
+                      {m.premium > 0 && (
+                        <div style={{ fontSize: 10, color: "#94a3b8" }}>+{m.premium.toFixed(1)}% premium</div>
+                      )}
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{fmtDollars(yr1)}</div>
+                      <div style={{ fontSize: 10, color: "#94a3b8" }}>/yr</div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 13, fontWeight: 600,
+                        color: m.std === 0 ? "#22c55e" : m.std < 10 ? "#3b82f6" : m.std < 30 ? "#f59e0b" : "#ef4444" }}>
+                        {m.std === 0 ? "None" : m.std.toFixed(0) + "%"}
+                      </div>
+                      <div style={{ fontSize: 10, color: "#94a3b8" }}>cash flow STD</div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>{m.spendEnd}</div>
+                      <div style={{ fontSize: 10, color: "#94a3b8" }}>spend/bequest</div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div style={{ marginTop: 12, padding: "10px 14px", background: "#f8fafc",
+              border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 11, color: "#94a3b8", lineHeight: 1.6 }}>
+              <strong style={{ color: "#64748b" }}>Excluded: Probability-Based Guardrails.</strong>{" "}
+              This method requires re-running a simulation every year of every trial to recalculate success
+              probability. The output isn't meaningfully different from Guardrails (Guyton-Klinger) for most users.
+            </div>
+
+            <div style={{ marginTop: 12, padding: "12px 14px", background: "#eff6ff",
+              border: "1px solid #bfdbfe", borderRadius: 6, fontSize: 12, color: "#1e40af", lineHeight: 1.6 }}>
+              <strong>How to read this:</strong> Your withdrawal rate is {fmtPct(withdrawalRate)}.
+              Any strategy with a safe rate ≥ {fmtPct(withdrawalRate)} (shown in green) could
+              theoretically support your spending at 90% success.
+              Higher-rate strategies come with trade-offs — mainly income volatility
+              (your spending fluctuates year to year) or reduced bequest potential.
+              The "Spend/Bequest" ratio shows what fraction of wealth goes to spending vs. what's left at end of plan.
+            </div>
+
+          </>}
+
+        </div>
+      </div>
+    </div>
+  )
+}
