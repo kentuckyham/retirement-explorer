@@ -1028,7 +1028,7 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
                     valueColor={STATUS[status].color}
                   />
                   <MetricCard
-                    label={`Base Safe Rate \u00B7 ${horizon}yr`}
+                    label={`Base Starting Rate \u00B7 ${horizon}yr`}
                     value={fmtPct(mcResults && !mcStale ? mcResults.fixed.safeRate : safeRate)}
                     sub={mcResults && !mcStale ? "Monte Carlo \u00B7 Fixed Real" : "Morningstar table \u00B7 Fixed Real"}
                     valueColor="#60a5fa"
@@ -1053,7 +1053,7 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
                     gap: 0, padding: "10px 14px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0",
                     fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "#94a3b8" }}>
                     <div>Strategy</div>
-                    <div style={{ textAlign: "right" }}>{mcResults && !mcStale ? "MC Safe Rate" : "Est. Safe Rate"}</div>
+                    <div style={{ textAlign: "right" }}>{mcResults && !mcStale ? "MC Starting Rate" : "Est. Starting Rate"}<br/><span style={{ fontWeight: 400, fontSize: 9, letterSpacing: 0, textTransform: "none" }}>(year-1 as % of portfolio)</span></div>
                     <div style={{ textAlign: "right" }}>Year-1 Withdrawal</div>
                     <div style={{ textAlign: "right" }}>Income Volatility</div>
                     <div style={{ textAlign: "right" }}>Spend/Bequest</div>
@@ -1062,10 +1062,24 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
                   {/* Method rows */}
                   {METHODS.map((m, i) => {
                     const useMC = mcResults && !mcStale;
+                    const isCapped = useMC && mcResults[m.id].capped;
                     const mRate = useMC ? mcResults[m.id].safeRate : getMethodRate(m, inp.equityPct, horizon);
-                    const yr1 = (mRate / 100) * inp.portfolio;
+                    // For "can't deplete" strategies, show actual formula-based Year-1 withdrawal
+                    let yr1, yr1Note;
+                    if (isCapped && m.id === "rmd") {
+                      yr1 = inp.portfolio / horizon;  // RMD: portfolio ÷ remaining years
+                      yr1Note = `portfolio \u00F7 ${horizon}yr`;
+                    } else if (isCapped && m.id === "constant") {
+                      // Constant % is always sustainable; show a reasonable starting % (e.g. expected return)
+                      const reasonablePct = getExpectedReturn(inp.equityPct) * 100;
+                      yr1 = (reasonablePct / 100) * inp.portfolio;
+                      yr1Note = `${reasonablePct.toFixed(1)}% of balance`;
+                    } else {
+                      yr1 = (mRate / 100) * inp.portfolio;
+                      yr1Note = null;
+                    }
                     const isBase = m.premium === 0;
-                    const canSupport = mRate >= withdrawalRate;
+                    const canSupport = isCapped || mRate >= withdrawalRate;
                     return (
                       <div key={m.id} style={{
                         display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr",
@@ -1086,12 +1100,12 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
                         {/* Rate */}
                         <div style={{ textAlign: "right" }}>
                           <div style={{ fontSize: 15, fontWeight: 800,
-                            color: canSupport ? "#22c55e" : withdrawalRate <= mRate + 0.5 ? "#f59e0b" : "#ef4444" }}>
-                            {useMC && mcResults[m.id].capped ? `\u226515.0%` : `${mRate.toFixed(1)}%`}
+                            color: isCapped ? "#22c55e" : canSupport ? "#22c55e" : withdrawalRate <= mRate + 0.5 ? "#f59e0b" : "#ef4444" }}>
+                            {isCapped ? "N/A" : `${mRate.toFixed(1)}%`}
                           </div>
                           {useMC
                             ? <div style={{ fontSize: 10, color: "#6ee7b7" }}>
-                                {mcResults[m.id].capped ? "can\u2019t deplete" : `MC ${(mcResults[m.id].successRate * 100).toFixed(0)}% success`}
+                                {isCapped ? "can\u2019t deplete" : `MC ${(mcResults[m.id].successRate * 100).toFixed(0)}% success`}
                               </div>
                             : m.premium > 0 && <div style={{ fontSize: 10, color: "#94a3b8" }}>+{m.premium.toFixed(1)}% premium</div>
                           }
@@ -1100,7 +1114,7 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
                         {/* Year-1 withdrawal */}
                         <div style={{ textAlign: "right" }}>
                           <div style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{fmtDollars(yr1)}</div>
-                          <div style={{ fontSize: 10, color: "#94a3b8" }}>/yr</div>
+                          <div style={{ fontSize: 10, color: "#94a3b8" }}>{yr1Note || "/yr"}</div>
                         </div>
 
                         {/* Volatility */}
