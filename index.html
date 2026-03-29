@@ -127,14 +127,30 @@
     // Premium-over-base-case extrapolation for non-30yr horizons
     // ─────────────────────────────────────────────────────────────────────────────
     const METHODS = [
-      { id: "fixed",     name: "Fixed Real (Base Case)",     premium: 0,    std: 0,    spendEnd: "45/55", desc: "Withdraw a fixed inflation-adjusted amount each year. Simplest approach — no adjustments needed, but requires the lowest starting rate." },
-      { id: "forgo",     name: "Forgo Inflation After Loss",  premium: 0.40, std: 5.5,  spendEnd: "48/52", desc: "Skip the inflation increase in any year following a portfolio loss. Minimal income volatility for a meaningful rate boost." },
-      { id: "rmd",       name: "RMD Method",                  premium: 0.82, std: 43.9, spendEnd: "93/7",  desc: "Withdraw based on IRS life expectancy divisors. High income volatility — spending tracks the portfolio closely, leaving little bequest." },
-      { id: "guardrails",name: "Guardrails (Guyton-Klinger)",premium: 1.30, std: 28.9, spendEnd: "66/34", desc: "Cut spending 10% if rate exceeds 120% of initial; raise 10% if below 80%. Allows a high starting rate with structured adjustment rules." },
-      { id: "decline",   name: "Actual Spending Decline",     premium: 1.10, std: 0,    spendEnd: "46/54", desc: "Assumes real spending naturally declines ~2%/yr in retirement (the 'go-go, slow-go, no-go' pattern). No volatility, but front-loads spending." },
-      { id: "endowment", name: "Endowment (10yr Avg)",        premium: 1.80, std: 38.8, spendEnd: "58/42", desc: "Withdraw a fixed percentage of the 10-year rolling average portfolio value. Smooths volatility vs. constant percentage but still variable." },
-      { id: "constant",  name: "Constant % of Balance",       premium: 1.80, std: 35.0, spendEnd: "58/42", desc: "Withdraw a fixed percentage of the current portfolio each year. Income rises and falls with the market — can never run out, but spending is volatile." },
-      { id: "vanguard",  name: "Vanguard Floor/Ceiling",      premium: 1.20, std: 36.4, spendEnd: "59/41", desc: "Apply a fixed percentage, but cap annual changes: max +5% increase, max −2.5% decrease. Balances responsiveness with stability." },
+      { id: "fixed",     name: "Fixed Real (Base Case)",     premium: 0,    std: 0,    spendEnd: "45/55",
+        desc: "Withdraw a fixed inflation-adjusted amount each year. Simplest approach — no adjustments needed, but requires the lowest starting rate.",
+        longDesc: "You choose a dollar amount in Year 1 (e.g. $200K), and withdraw that same amount every year, adjusted upward by inflation (2.5%/yr in this model). Your income is perfectly predictable, but the portfolio bears all the risk. If markets crash early, you keep withdrawing the same amount from a shrinking portfolio — which is why this method demands the lowest starting rate. Best for: retirees who prioritize income certainty above all else and can accept a lower starting income." },
+      { id: "forgo",     name: "Forgo Inflation After Loss",  premium: 0.40, std: 5.5,  spendEnd: "48/52",
+        desc: "Skip the inflation increase in any year following a portfolio loss. Minimal income volatility for a meaningful rate boost.",
+        longDesc: "Works like Fixed Real, except in any year where the portfolio lost value, you skip the inflation adjustment and keep your withdrawal flat in nominal terms. This small concession — occasionally forgoing a 2-3% raise — meaningfully reduces the strain on the portfolio after bad years, allowing a higher starting rate. Your income never actually drops, it just sometimes doesn't grow. Over a 30-year retirement, you might skip the inflation adjustment 8-12 times. Best for: retirees who want near-fixed income but are willing to accept occasional flat years for a higher starting withdrawal." },
+      { id: "rmd",       name: "RMD Method",                  premium: 0.82, std: 43.9, spendEnd: "93/7",
+        desc: "Withdraw based on IRS life expectancy divisors. High income volatility — spending tracks the portfolio closely, leaving little bequest.",
+        longDesc: "Each year, divide your portfolio by the number of remaining years in your planning horizon. Year 1 of a 40-year plan: withdraw 1/40th (2.5%). Year 20: withdraw 1/20th (5%). Year 39: withdraw 1/2 (50%). The method is mathematically incapable of depleting the portfolio — there's always something left to divide. However, your income swings wildly with market performance (44% standard deviation), and the method naturally accelerates withdrawals in later years. It spends ~93% of total wealth, leaving almost nothing as bequest. Best for: retirees who prioritize never running out over income stability and don't need to leave an inheritance." },
+      { id: "guardrails",name: "Guardrails (Guyton-Klinger)",premium: 1.30, std: 28.9, spendEnd: "66/34",
+        desc: "Cut spending 10% if rate exceeds 120% of initial; raise 10% if below 80%. Allows a high starting rate with structured adjustment rules.",
+        longDesc: "Start with a chosen withdrawal rate, then adjust based on two guardrails: (1) If your current withdrawal rate rises above 120% of your initial rate (meaning the portfolio has dropped), cut spending by 10%. (2) If your current rate falls below 80% of initial (portfolio has grown), increase spending by 10%. This creates a self-correcting mechanism — you spend more in good times and less in bad times, but the adjustments are bounded and predictable. The structured rules allow a significantly higher starting rate than Fixed Real. Best for: retirees who can tolerate occasional 10% spending cuts in exchange for a much higher starting income, especially those with government benefits that create a spending floor." },
+      { id: "decline",   name: "Actual Spending Decline",     premium: 1.10, std: 0,    spendEnd: "46/54",
+        desc: "Assumes real spending naturally declines ~2%/yr in retirement (the 'go-go, slow-go, no-go' pattern). No volatility, but front-loads spending.",
+        longDesc: "Based on research showing that retirees naturally spend less as they age — the 'go-go years' (active travel, dining), 'slow-go years' (less activity), and 'no-go years' (mostly home-based). This method sets a higher initial withdrawal that declines ~2% per year in real terms. By Year 20, you're spending about 67% of your initial amount in real terms. There's zero income volatility (the path is predetermined), but it front-loads your spending, which works well if you want to enjoy money while you're healthiest. Best for: retirees who expect to spend more in early retirement and naturally slow down later, and who want a predictable declining income path." },
+      { id: "endowment", name: "Endowment (10yr Avg)",        premium: 1.80, std: 38.8, spendEnd: "58/42",
+        desc: "Withdraw a fixed percentage of the 10-year rolling average portfolio value. Smooths volatility vs. constant percentage but still variable.",
+        longDesc: "Withdraw a fixed percentage of your portfolio's 10-year rolling average value. By averaging over a decade, a single bad year doesn't immediately slash your income — the average absorbs the shock. However, prolonged downturns will eventually pull the average down, and strong recoveries take years to fully flow through. Income volatility (39%) is still high but smoother than Constant %. This is the approach used by many university endowments. Allows a high starting rate but income remains meaningfully variable. Best for: retirees comfortable with variable income who want some smoothing, and who have other income sources to cover essential expenses." },
+      { id: "constant",  name: "Constant % of Balance",       premium: 1.80, std: 35.0, spendEnd: "58/42",
+        desc: "Withdraw a fixed percentage of the current portfolio each year. Income rises and falls with the market — can never run out, but spending is volatile.",
+        longDesc: "Withdraw the same percentage of whatever your portfolio is worth each year. If the portfolio drops 20%, your income drops 20%. If it doubles, your income doubles. Mathematically, this can never deplete the portfolio — you're always taking a fraction of a positive number. But the income volatility is severe (35% standard deviation). A $200K withdrawal could become $130K after a bad year. The method maximizes long-run spending efficiency but requires enormous flexibility in year-to-year lifestyle. Best for: retirees with very flexible spending needs, substantial guaranteed income from other sources, or those who view the portfolio as supplemental rather than essential." },
+      { id: "vanguard",  name: "Vanguard Floor/Ceiling",      premium: 1.20, std: 36.4, spendEnd: "59/41",
+        desc: "Apply a fixed percentage, but cap annual changes: max +5% increase, max −2.5% decrease. Balances responsiveness with stability.",
+        longDesc: "A refinement of Constant % that limits how much your income can change year to year. Apply a fixed percentage to the current portfolio, but cap annual increases at +5% and decreases at −2.5%. This means after a 30% market crash, your income only drops 2.5% that year (not 30%). The downside: if markets stay down for several years, the 2.5% annual decreases compound. And in strong bull markets, the +5% cap means you don't fully participate in the upside. Despite the annual caps, long-run volatility is still high (36%) because small annual changes accumulate. Best for: retirees who like the idea of Constant % but want year-to-year stability, and who accept that the caps slow both recovery and participation." },
     ];
 
     function getMethodRate(method, equityPct, horizon) {
@@ -470,6 +486,7 @@
       const [mcInputs, setMcInputs]    = useState(null);       // snapshot of inputs when MC was run
       const [chartMethod, setChartMethod] = useState("fixed"); // strategy for projection chart
       const [mcView, setMcView]         = useState("mc");      // "mc" | "est" — which data to show in methods table
+      const [hoveredInfo, setHoveredInfo] = useState(null);     // method id for tooltip
 
       // ── Scenario slot actions ──
       function loadSlot(i) {
@@ -1156,14 +1173,36 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
                         borderBottom: i < METHODS.length - 1 ? "1px solid #f1f5f9" : "none",
                         background: canSupport ? "rgba(34,197,94,0.04)" : "transparent",
                       }}>
-                        {/* Name + description */}
-                        <div>
+                        {/* Name + description + info tooltip */}
+                        <div style={{ position: "relative" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
                             <span style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{m.name}</span>
                             {isBase && <span style={{ fontSize: 9, background: "#e2e8f0", color: "#64748b",
                               padding: "1px 6px", borderRadius: 8, fontWeight: 600 }}>BASE</span>}
+                            <span
+                              onMouseEnter={() => setHoveredInfo(m.id)}
+                              onMouseLeave={() => setHoveredInfo(null)}
+                              style={{ display: "inline-flex", alignItems: "center", justifyContent: "center",
+                                width: 16, height: 16, borderRadius: "50%", fontSize: 10, fontWeight: 700,
+                                background: hoveredInfo === m.id ? "#3b82f6" : "#e2e8f0",
+                                color: hoveredInfo === m.id ? "white" : "#94a3b8",
+                                cursor: "help", flexShrink: 0, lineHeight: 1 }}>i</span>
                           </div>
                           <div style={{ fontSize: 11, color: "#94a3b8", lineHeight: 1.5 }}>{m.desc}</div>
+                          {/* Tooltip */}
+                          {hoveredInfo === m.id && (
+                            <div
+                              onMouseEnter={() => setHoveredInfo(m.id)}
+                              onMouseLeave={() => setHoveredInfo(null)}
+                              style={{
+                                position: "absolute", top: "100%", left: 0, zIndex: 50,
+                                marginTop: 4, width: 380, padding: "12px 14px",
+                                background: "#0f172a", color: "#e2e8f0", borderRadius: 8,
+                                fontSize: 12, lineHeight: 1.6, boxShadow: "0 8px 24px rgba(0,0,0,0.25)",
+                              }}>
+                              {m.longDesc}
+                            </div>
+                          )}
                         </div>
 
                         {/* Rate */}
