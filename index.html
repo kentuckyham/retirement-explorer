@@ -151,7 +151,7 @@
     // MONTE CARLO SIMULATION ENGINE
     // ─────────────────────────────────────────────────────────────────────────────
     const MC = {
-      trials: 500,           // trials per success-rate check
+      trials: 1000,          // trials per success-rate check
       eqVol:  0.17,          // equity annualized real std dev
       bondVol: 0.06,         // bond annualized real std dev
       targetSuccess: 0.90,   // 90% success threshold
@@ -1049,7 +1049,7 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
                         fontSize: 12, fontWeight: 600,
                         cursor: mcRunning ? "not-allowed" : "pointer",
                       }}>
-                        {mcRunning ? "Running simulation\u2026" : mcResults && !mcStale ? "Re-run Monte Carlo" : "Run Monte Carlo (500 trials)"}
+                        {mcRunning ? "Running simulation\u2026" : mcResults && !mcStale ? "Re-run Monte Carlo" : "Run Monte Carlo (1,000 trials)"}
                       </button>
                     </div>
                   </div>
@@ -1057,7 +1057,7 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
                     Eight withdrawal methods from Morningstar's <em>State of Retirement Income 2025</em>,
                     for your current inputs: {inp.equityPct}% equity, {horizon}-year horizon.
                     {mcResults && !mcStale && mcView === "mc"
-                      ? " Rates computed via Monte Carlo simulation (500 trials, 90% success, seeded PRNG)."
+                      ? " Rates computed via Monte Carlo simulation (1,000 trials, 90% success, seeded PRNG)."
                       : " Rates estimated via premium extrapolation from Morningstar\u2019s 30-year / 40% equity data."}
                   </p>
                   {mcStale && mcView === "mc" && (
