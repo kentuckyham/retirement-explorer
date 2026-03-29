@@ -721,7 +721,7 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
               <Slider label="Portfolio Size"    value={inp.portfolio}      onChange={v => set("portfolio", v)}      min={1_000_000} max={10_000_000} step={25_000}  fmt={fmtDollars} />
               <Slider label="Annual Spending"   value={inp.spending}       onChange={v => set("spending", v)}       min={50_000}    max={500_000}    step={5_000}   fmt={v => `$${(v/1000).toFixed(0)}K`} />
               <Slider label="Retirement Age"    value={inp.retirementAge}  onChange={v => set("retirementAge", v)}  min={45}        max={70}         step={1}       fmt={v => v} />
-              <Slider label="Equity / Bond Split" value={inp.equityPct}      onChange={v => set("equityPct", v)}      min={0}         max={100}        step={10}      fmt={v => `${v}% / ${100-v}%`} />
+              <Slider label="Equity / Bond Split" value={inp.equityPct}      onChange={v => set("equityPct", v)}      min={0}         max={100}        step={1}       fmt={v => `${v}% / ${100-v}%`} />
               <div style={{ fontSize: 10, color: "#94a3b8", marginTop: -8, marginBottom: 12, lineHeight: 1.4 }}>
                 Morningstar models two asset classes: equities ({(CMA.equity*100).toFixed(1)}% real) and
                 bonds ({(CMA.bond*100).toFixed(1)}% real). Cash is not modeled separately.
