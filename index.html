@@ -296,9 +296,9 @@
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
-    // PORTFOLIO PROJECTION
+    // PORTFOLIO PROJECTION (strategy-aware)
     // ─────────────────────────────────────────────────────────────────────────────
-    function buildProjection(inputs) {
+    function buildProjection(inputs, methodId = "fixed") {
       const { portfolio, spending, retirementAge, lifeExpectancy, ssClaimAge, ssBenefit, cpp, oas, equityPct } = inputs;
       const totalBenefits = ssBenefit + cpp + oas;
       const years = lifeExpectancy - retirementAge;
@@ -309,16 +309,21 @@
         base:        expected,
         optimistic:  expected + CMA.spread,
       };
-      const vals = { pessimistic: portfolio, base: portfolio, optimistic: portfolio };
-      const data = [{ year: 0, age: retirementAge, ...vals }];
+      const withdrawFn = WITHDRAW[methodId];
+
+      // Per-scenario state for variable withdrawal methods
+      const sc = {};
+      for (const key of Object.keys(RETURNS)) {
+        sc[key] = { bal: portfolio, prevWD: spending, lastR: 0, hist: [portfolio] };
+      }
+
+      const data = [{ year: 0, age: retirementAge, pessimistic: portfolio, base: portfolio, optimistic: portfolio }];
 
       for (let y = 1; y <= years; y++) {
         const age = retirementAge + y;
-        const inflatedSpend = spending * Math.pow(1.025, y);
         const benefitsYear = age >= ssClaimAge
           ? totalBenefits * Math.pow(1.025, age - ssClaimAge)
           : 0;
-        const netWithdrawal = Math.max(0, inflatedSpend - benefitsYear);
 
         // At the SS transition year, insert a phantom point showing where
         // the portfolio would be WITHOUT benefits, so the line reaches the
@@ -326,10 +331,13 @@
         if (y === bridge && totalBenefits > 0) {
           const phantom = { year: y - 0.01, age };
           for (const [key, r] of Object.entries(RETURNS)) {
-            const prev = vals[key];
-            if (prev === null) { phantom[key] = null; continue; }
-            const noBenefitWD = inflatedSpend;  // full spend, no offset
-            const next = prev * (1 + r) - noBenefitWD;
+            const s = sc[key];
+            if (s.bal === null) { phantom[key] = null; continue; }
+            const grown = s.bal * (1 + r);
+            const wdState = { year: y, initialWD: spending, P0: portfolio, portfolio: grown,
+              prevWD: s.prevWD, lastReturn: s.lastR, horizon: years, history: s.hist };
+            const grossWD = Math.max(0, withdrawFn(wdState));
+            const next = grown - grossWD;  // no benefit offset for phantom
             phantom[key] = next <= 0 ? 0 : next;
           }
           data.push(phantom);
@@ -337,11 +345,19 @@
 
         const point = { year: y, age };
         for (const [key, r] of Object.entries(RETURNS)) {
-          const prev = vals[key];
-          if (prev === null) { point[key] = null; continue; }
-          const next = prev * (1 + r) - netWithdrawal;
-          vals[key] = next <= 0 ? null : next;
-          point[key] = vals[key] === null ? 0 : vals[key];
+          const s = sc[key];
+          if (s.bal === null) { point[key] = null; continue; }
+          const grown = s.bal * (1 + r);
+          const wdState = { year: y, initialWD: spending, P0: portfolio, portfolio: grown,
+            prevWD: s.prevWD, lastReturn: s.lastR, horizon: years, history: s.hist };
+          const grossWD = Math.max(0, withdrawFn(wdState));
+          const netWD = Math.max(0, grossWD - benefitsYear);
+          const next = grown - netWD;
+          s.bal = next <= 0 ? null : next;
+          s.prevWD = grossWD;
+          s.lastR = r;
+          s.hist.push(s.bal || 0);
+          point[key] = s.bal === null ? 0 : s.bal;
         }
         data.push(point);
       }
@@ -452,6 +468,8 @@
       const [mcResults, setMcResults]   = useState(null);      // { methodId: { safeRate, successRate } }
       const [mcRunning, setMcRunning]   = useState(false);
       const [mcInputs, setMcInputs]    = useState(null);       // snapshot of inputs when MC was run
+      const [chartMethod, setChartMethod] = useState("fixed"); // strategy for projection chart
+      const [mcView, setMcView]         = useState("mc");      // "mc" | "est" — which data to show in methods table
 
       // ── Scenario slot actions ──
       function loadSlot(i) {
@@ -512,7 +530,8 @@
       const returnPess     = ((expectedReturn - CMA.spread) * 100).toFixed(1);
       const returnBase     = (expectedReturn * 100).toFixed(1);
       const returnOpt      = ((expectedReturn + CMA.spread) * 100).toFixed(1);
-      const chartData      = useMemo(() => buildProjection(inp), [inp]);
+      const chartData      = useMemo(() => buildProjection(inp, chartMethod), [inp, chartMethod]);
+      const selectedMethod = METHODS.find(m => m.id === chartMethod);
       const showGuardrails = status === "marginal" || status === "aggressive";
 
       // ── AI Analysis ──
@@ -586,6 +605,7 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
             const results = mcRunAll(horizon, inp.equityPct);
             setMcResults(results);
             setMcInputs({ equityPct: inp.equityPct, horizon });
+            setMcView("mc");
           } catch (err) {
             console.error("Monte Carlo error:", err);
           } finally {
@@ -801,6 +821,17 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
                 </MetricCard>
               </div>
 
+              {/* Fixed Real baseline header */}
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em",
+                textTransform: "uppercase", color: "#64748b", marginBottom: 8,
+                background: "#f1f5f9", borderRadius: 6, padding: "6px 12px",
+                display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span>Fixed Real Baseline &mdash; constant inflation-adjusted spending</span>
+                <span style={{ fontWeight: 500, letterSpacing: 0, textTransform: "none", fontSize: 10, color: "#94a3b8" }}>
+                  Use the chart below to explore other strategies
+                </span>
+              </div>
+
               {/* Metric cards */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 16 }}>
                 <MetricCard
@@ -860,10 +891,32 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
               {/* Portfolio projection chart */}
               <div style={{ background: "white", border: "1px solid #e2e8f0",
                 borderRadius: 8, padding: 16, marginBottom: 16 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
-                  textTransform: "uppercase", color: "#94a3b8", marginBottom: 12 }}>
-                  Portfolio Projection &mdash; Age {inp.retirementAge} to {inp.lifeExpectancy}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
+                    textTransform: "uppercase", color: "#94a3b8" }}>
+                    Portfolio Projection &mdash; Age {inp.retirementAge} to {inp.lifeExpectancy}
+                  </div>
+                  <button onClick={() => setActiveTab("methods")} style={{ background: "none", border: "none",
+                    color: "#3b82f6", fontWeight: 600, fontSize: 11, cursor: "pointer", whiteSpace: "nowrap" }}>
+                    Compare all 8 strategies &rarr;
+                  </button>
                 </div>
+
+                {/* Strategy selector */}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 12 }}>
+                  {METHODS.map(m => (
+                    <button key={m.id} onClick={() => setChartMethod(m.id)} style={{
+                      padding: "4px 10px", fontSize: 11, fontWeight: chartMethod === m.id ? 700 : 500,
+                      border: chartMethod === m.id ? "1px solid #3b82f6" : "1px solid #e2e8f0",
+                      borderRadius: 20, cursor: "pointer",
+                      background: chartMethod === m.id ? "#eff6ff" : "white",
+                      color: chartMethod === m.id ? "#1d4ed8" : "#64748b",
+                    }}>
+                      {m.name.replace(" (Base Case)", "").replace(" (Guyton-Klinger)", "").replace(" (10yr Avg)", "")}
+                    </button>
+                  ))}
+                </div>
+
                 <ResponsiveContainer width="100%" height={190}>
                   <LineChart data={chartData} margin={{ top: 4, right: 12, left: 4, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -887,22 +940,18 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
                   </LineChart>
                 </ResponsiveContainer>
                 <p style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic", marginTop: 6 }}>
-                  Returns derived from equity allocation: {inp.equityPct}% equities ({(CMA.equity*100).toFixed(1)}% real)
+                  <strong style={{ color: "#64748b" }}>{selectedMethod.name}:</strong>{" "}
+                  {selectedMethod.desc.split(".")[0]}.{" "}
+                  Returns: {inp.equityPct}% equities ({(CMA.equity*100).toFixed(1)}% real)
                   + {100-inp.equityPct}% bonds ({(CMA.bond*100).toFixed(1)}% real) = {returnBase}% expected &plusmn;{(CMA.spread*100).toFixed(0)}%.
-                  End-of-year withdrawal convention. Actual sequence of returns matters more than averages &mdash;
-                  early losses are disproportionately harmful and not captured here.
                 </p>
-              </div>
-
-              {/* Methods hint */}
-              <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 6,
-                padding: "8px 14px", marginBottom: 16, fontSize: 12, color: "#64748b", display: "flex",
-                alignItems: "center", justifyContent: "space-between" }}>
-                <span>This analysis uses the <strong style={{ color: "#1e293b" }}>Fixed Real</strong> withdrawal method (constant inflation-adjusted spending).</span>
-                <button onClick={() => setActiveTab("methods")} style={{ background: "none", border: "none",
-                  color: "#3b82f6", fontWeight: 600, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}>
-                  Compare all 8 strategies &rarr;
-                </button>
+                <div style={{ background: "#f1f5f9", borderRadius: 4, padding: "6px 10px", marginTop: 8,
+                  fontSize: 10, color: "#64748b", lineHeight: 1.5 }}>
+                  This is a <strong>deterministic</strong> projection &mdash; it assumes the same return every year.
+                  Real markets have good years and bad years, and a bad sequence early in retirement is
+                  disproportionately harmful. A strategy that looks safe here may still fail under volatile returns.
+                  See <strong>Compare Methods</strong> for starting-rate analysis that accounts for this risk.
+                </div>
               </div>
 
               {/* Guardrails callout */}
@@ -975,41 +1024,57 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
 
                 {/* Intro */}
                 <div style={{ marginBottom: 16 }}>
+                  {/* Header row: title + actions */}
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
                     <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>
                       Withdrawal Strategy Comparison
                     </div>
-                    <button onClick={handleRunMC} disabled={mcRunning} style={{
-                      background: mcRunning ? "#475569" : "#0f172a", color: "white",
-                      border: "none", borderRadius: 6, padding: "8px 18px",
-                      fontSize: 12, fontWeight: 600,
-                      cursor: mcRunning ? "not-allowed" : "pointer",
-                    }}>
-                      {mcRunning ? "Running simulation\u2026" : mcResults && !mcStale ? "Re-run Monte Carlo" : "Run Monte Carlo (500 trials)"}
-                    </button>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      {/* Estimated / Simulated toggle — only shown after MC has run */}
+                      {mcResults && (
+                        <div style={{ display: "flex", border: "1px solid #e2e8f0", borderRadius: 6, overflow: "hidden" }}>
+                          {[["est", "Estimated"], ["mc", "Simulated"]].map(([key, label]) => (
+                            <button key={key} onClick={() => setMcView(key)} style={{
+                              padding: "5px 12px", fontSize: 11, fontWeight: 600, cursor: "pointer",
+                              border: "none",
+                              background: mcView === key ? "#0f172a" : "white",
+                              color: mcView === key ? "white" : "#64748b",
+                            }}>{label}</button>
+                          ))}
+                        </div>
+                      )}
+                      <button onClick={handleRunMC} disabled={mcRunning} style={{
+                        background: mcRunning ? "#475569" : "#0f172a", color: "white",
+                        border: "none", borderRadius: 6, padding: "8px 18px",
+                        fontSize: 12, fontWeight: 600,
+                        cursor: mcRunning ? "not-allowed" : "pointer",
+                      }}>
+                        {mcRunning ? "Running simulation\u2026" : mcResults && !mcStale ? "Re-run Monte Carlo" : "Run Monte Carlo (500 trials)"}
+                      </button>
+                    </div>
                   </div>
                   <p style={{ fontSize: 12, color: "#64748b", lineHeight: 1.6, marginBottom: 8 }}>
                     Eight withdrawal methods from Morningstar's <em>State of Retirement Income 2025</em>,
                     for your current inputs: {inp.equityPct}% equity, {horizon}-year horizon.
-                    {mcResults && !mcStale
+                    {mcResults && !mcStale && mcView === "mc"
                       ? " Rates computed via Monte Carlo simulation (500 trials, 90% success, seeded PRNG)."
-                      : " Rates estimated via premium extrapolation (click Run Monte Carlo for simulation-based rates)."}
+                      : " Rates estimated via premium extrapolation from Morningstar\u2019s 30-year / 40% equity data."}
                   </p>
-                  {mcStale && (
+                  {mcStale && mcView === "mc" && (
                     <div style={{ background: "#fef3c7", border: "1px solid #fcd34d", borderRadius: 6,
                       padding: "8px 12px", fontSize: 11, color: "#92400e", lineHeight: 1.5, marginBottom: 8 }}>
                       Inputs have changed since last simulation ({mcInputs.equityPct}% equity, {mcInputs.horizon}yr).
                       Showing stale MC results &mdash; click <strong>Re-run Monte Carlo</strong> to update.
                     </div>
                   )}
-                  {!mcResults && (
+                  {(!mcResults || mcView === "est") && (
                     <div style={{ background: "#fef3c7", border: "1px solid #fcd34d", borderRadius: 6,
                       padding: "8px 12px", fontSize: 11, color: "#92400e", lineHeight: 1.5 }}>
                       Rates for non-base-case methods are estimated via premium extrapolation from Morningstar's
-                      30-year / 40% equity data. Run Monte Carlo for simulation-based rates specific to your inputs.
+                      30-year / 40% equity data.{!mcResults && " Run Monte Carlo for simulation-based rates specific to your inputs."}
                     </div>
                   )}
-                  {mcResults && !mcStale && (
+                  {mcResults && !mcStale && mcView === "mc" && (
                     <div style={{ background: "#ecfdf5", border: "1px solid #6ee7b7", borderRadius: 6,
                       padding: "8px 12px", fontSize: 11, color: "#065f46", lineHeight: 1.5 }}>
                       Monte Carlo results: {MC.trials} trials per rate test, {MC.searchIter}-step binary search,
@@ -1029,14 +1094,16 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
                   />
                   <MetricCard
                     label={`Base Starting Rate \u00B7 ${horizon}yr`}
-                    value={fmtPct(mcResults && !mcStale ? mcResults.fixed.safeRate : safeRate)}
-                    sub={mcResults && !mcStale ? "Monte Carlo \u00B7 Fixed Real" : "Morningstar table \u00B7 Fixed Real"}
+                    value={fmtPct(mcResults && !mcStale && mcView === "mc" ? mcResults.fixed.safeRate : safeRate)}
+                    sub={mcResults && !mcStale && mcView === "mc" ? "Monte Carlo \u00B7 Fixed Real" : "Morningstar table \u00B7 Fixed Real"}
                     valueColor="#60a5fa"
                   />
                   <MetricCard label="Methods in Range">
                     <div style={{ fontSize: 22, fontWeight: 800, color: "#22c55e", lineHeight: 1, marginBottom: 4 }}>
                       {METHODS.filter(m => {
-                        const r = mcResults && !mcStale ? mcResults[m.id].safeRate : getMethodRate(m, inp.equityPct, horizon);
+                        if (m.id === "rmd") return (inp.portfolio / horizon) >= inp.spending;
+                        if (m.id === "constant") return (getExpectedReturn(inp.equityPct) * inp.portfolio) >= inp.spending;
+                        const r = mcResults && !mcStale && mcView === "mc" ? mcResults[m.id].safeRate : getMethodRate(m, inp.equityPct, horizon);
                         return r >= withdrawalRate;
                       }).length} of {METHODS.length}
                     </div>
@@ -1053,7 +1120,7 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
                     gap: 0, padding: "10px 14px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0",
                     fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "#94a3b8" }}>
                     <div>Strategy</div>
-                    <div style={{ textAlign: "right" }}>{mcResults && !mcStale ? "MC Starting Rate" : "Est. Starting Rate"}<br/><span style={{ fontWeight: 400, fontSize: 9, letterSpacing: 0, textTransform: "none" }}>(year-1 as % of portfolio)</span></div>
+                    <div style={{ textAlign: "right" }}>{mcResults && !mcStale && mcView === "mc" ? "MC Starting Rate" : "Est. Starting Rate"}<br/><span style={{ fontWeight: 400, fontSize: 9, letterSpacing: 0, textTransform: "none" }}>(year-1 as % of portfolio)</span></div>
                     <div style={{ textAlign: "right" }}>Year-1 Withdrawal</div>
                     <div style={{ textAlign: "right" }}>Income Volatility</div>
                     <div style={{ textAlign: "right" }}>Spend/Bequest</div>
@@ -1061,16 +1128,17 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
 
                   {/* Method rows */}
                   {METHODS.map((m, i) => {
-                    const useMC = mcResults && !mcStale;
+                    const useMC = mcResults && !mcStale && mcView === "mc";
                     const isCapped = useMC && mcResults[m.id].capped;
+                    // RMD and Constant % are formula-driven — no user-chosen starting rate
+                    const isFormulaDriven = m.id === "rmd" || m.id === "constant";
                     const mRate = useMC ? mcResults[m.id].safeRate : getMethodRate(m, inp.equityPct, horizon);
-                    // For "can't deplete" strategies, show actual formula-based Year-1 withdrawal
+                    // For formula-driven strategies, show actual Year-1 withdrawal regardless of MC state
                     let yr1, yr1Note;
-                    if (isCapped && m.id === "rmd") {
+                    if (isFormulaDriven && m.id === "rmd") {
                       yr1 = inp.portfolio / horizon;  // RMD: portfolio ÷ remaining years
                       yr1Note = `portfolio \u00F7 ${horizon}yr`;
-                    } else if (isCapped && m.id === "constant") {
-                      // Constant % is always sustainable; show a reasonable starting % (e.g. expected return)
+                    } else if (isFormulaDriven && m.id === "constant") {
                       const reasonablePct = getExpectedReturn(inp.equityPct) * 100;
                       yr1 = (reasonablePct / 100) * inp.portfolio;
                       yr1Note = `${reasonablePct.toFixed(1)}% of balance`;
@@ -1079,7 +1147,8 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
                       yr1Note = null;
                     }
                     const isBase = m.premium === 0;
-                    const canSupport = isCapped || mRate >= withdrawalRate;
+                    // For formula-driven methods, check if actual Year-1 withdrawal covers spending
+                    const canSupport = isFormulaDriven ? yr1 >= inp.spending : mRate >= withdrawalRate;
                     return (
                       <div key={m.id} style={{
                         display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr",
@@ -1100,14 +1169,19 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
                         {/* Rate */}
                         <div style={{ textAlign: "right" }}>
                           <div style={{ fontSize: 15, fontWeight: 800,
-                            color: isCapped ? "#22c55e" : canSupport ? "#22c55e" : withdrawalRate <= mRate + 0.5 ? "#f59e0b" : "#ef4444" }}>
-                            {isCapped ? "N/A" : `${mRate.toFixed(1)}%`}
+                            color: isFormulaDriven
+                              ? (canSupport ? "#22c55e" : yr1 >= inp.spending * 0.8 ? "#f59e0b" : "#ef4444")
+                              : canSupport ? "#22c55e" : withdrawalRate <= mRate + 0.5 ? "#f59e0b" : "#ef4444" }}>
+                            {isFormulaDriven ? "N/A" : `${mRate.toFixed(1)}%`}
                           </div>
-                          {useMC
-                            ? <div style={{ fontSize: 10, color: "#6ee7b7" }}>
-                                {isCapped ? "can\u2019t deplete" : `MC ${(mcResults[m.id].successRate * 100).toFixed(0)}% success`}
+                          {isFormulaDriven
+                            ? <div style={{ fontSize: 10,
+                                color: canSupport ? "#6ee7b7" : yr1 >= inp.spending * 0.8 ? "#fbbf24" : "#f87171" }}>
+                                can{"\u2019"}t deplete
                               </div>
-                            : m.premium > 0 && <div style={{ fontSize: 10, color: "#94a3b8" }}>+{m.premium.toFixed(1)}% premium</div>
+                            : useMC
+                              ? <div style={{ fontSize: 10, color: "#6ee7b7" }}>MC {(mcResults[m.id].successRate * 100).toFixed(0)}% success</div>
+                              : m.premium > 0 && <div style={{ fontSize: 10, color: "#94a3b8" }}>+{m.premium.toFixed(1)}% premium</div>
                           }
                         </div>
 
@@ -1156,7 +1230,7 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
                 </div>
 
                 {/* MC methodology note */}
-                {mcResults && !mcStale && (
+                {mcResults && !mcStale && mcView === "mc" && (
                   <div style={{ marginTop: 12, padding: "12px 14px", background: "#f8fafc",
                     border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 11, color: "#64748b", lineHeight: 1.6 }}>
                     <strong>Monte Carlo methodology:</strong> Each strategy's safe rate is found via binary search
