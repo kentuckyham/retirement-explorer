@@ -1148,14 +1148,16 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
                             cursor: "help", flexShrink: 0, lineHeight: 1 }}>i</span>
                       </div>
                       <div style={{ fontSize: 11, color: "#94a3b8", lineHeight: 1.5 }}>{m.desc}</div>
-                      {/* Tooltip */}
+                      {/* Tooltip — flip above for bottom half of list */}
                       {hoveredInfo === m.id && (
                         <div
                           onMouseEnter={() => setHoveredInfo(m.id)}
                           onMouseLeave={() => setHoveredInfo(null)}
                           style={{
-                            position: "absolute", top: "100%", left: 0, zIndex: 50,
-                            marginTop: 4, width: 380, padding: "12px 14px",
+                            position: "absolute",
+                            ...(i >= 4 ? { bottom: "100%", marginBottom: 4 } : { top: "100%", marginTop: 4 }),
+                            left: 0, zIndex: 50,
+                            width: 380, padding: "12px 14px",
                             background: "#0f172a", color: "#e2e8f0", borderRadius: 8,
                             fontSize: 12, lineHeight: 1.6, boxShadow: "0 8px 24px rgba(0,0,0,0.25)",
                           }}>
