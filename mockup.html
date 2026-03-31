@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Retirement Explorer — Design Mockup</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #0c0f1a;
+      color: #c8cdd8;
+      min-height: 100vh;
+      padding: 16px;
+    }
+
+    /* ── Header ── */
+    .header {
+      background: linear-gradient(135deg, #111827 0%, #1a1f35 100%);
+      border: 1px solid #1e2540;
+      padding: 14px 22px;
+      border-radius: 12px 12px 0 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .header h1 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #f1f5f9;
+      letter-spacing: -0.01em;
+    }
+    .header .subtitle {
+      font-size: 11px;
+      color: #4b5574;
+      font-weight: 500;
+    }
+
+    /* ── Body layout ── */
+    .body-wrap {
+      display: flex;
+      border: 1px solid #1e2540;
+      border-top: none;
+      border-radius: 0 0 12px 12px;
+      min-height: calc(100vh - 80px);
+      overflow: hidden;
+    }
+
+    /* ── Left panel ── */
+    .left-panel {
+      width: 37%;
+      background: #0f1220;
+      border-right: 1px solid #1e2540;
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    .section-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #4b5574;
+      margin-bottom: 10px;
+      margin-top: 20px;
+    }
+    .section-label:first-child { margin-top: 0; }
+
+    .helper-text {
+      font-size: 11px;
+      color: #3d4563;
+      margin-bottom: 10px;
+      line-height: 1.5;
+    }
+
+    /* Scenario cards */
+    .scenario-card {
+      border-radius: 8px;
+      border: 1px solid #1e2540;
+      background: #141829;
+      padding: 12px 14px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .scenario-card:hover {
+      border-color: #2a3460;
+      background: #181d33;
+    }
+    .scenario-card.active {
+      border-color: #3b6cf6;
+      background: rgba(59, 108, 246, 0.06);
+    }
+    .scenario-card .name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #e2e8f0;
+      margin-bottom: 3px;
+    }
+    .scenario-card.active .name { color: #7da4fa; }
+    .scenario-card .meta {
+      font-size: 11px;
+      color: #3d4563;
+    }
+    .scenario-card.active .meta { color: #4b6299; }
+    .scenario-card .actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 6px;
+    }
+    .scenario-card .save-btn {
+      font-size: 10px;
+      font-weight: 600;
+      color: #3d4563;
+      background: none;
+      border: none;
+      cursor: pointer;
+    }
+    .scenario-card .save-btn:hover { color: #7da4fa; }
+
+    /* Callout box */
+    .info-callout {
+      background: rgba(59, 108, 246, 0.06);
+      border: 1px solid rgba(59, 108, 246, 0.15);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-top: 12px;
+      margin-bottom: 10px;
+      font-size: 11px;
+      color: #5a7ec2;
+      line-height: 1.6;
+    }
+
+    /* Sliders */
+    .slider-group { margin-bottom: 14px; }
+    .slider-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+    .slider-label .lbl { color: #8892a8; font-weight: 500; }
+    .slider-label .val { color: #e2e8f0; font-weight: 700; }
+    .slider-track {
+      width: 100%;
+      height: 6px;
+      background: #1e2540;
+      border-radius: 3px;
+      position: relative;
+    }
+    .slider-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: linear-gradient(90deg, #3b6cf6, #6d8df7);
+    }
+    .slider-thumb {
+      width: 14px;
+      height: 14px;
+      background: #fff;
+      border: 2px solid #3b6cf6;
+      border-radius: 50%;
+      position: absolute;
+      top: -4px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    }
+    .slider-note {
+      font-size: 10px;
+      color: #3d4563;
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+
+    /* SS claim buttons */
+    .btn-group {
+      display: flex;
+      border: 1px solid #1e2540;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .btn-group button {
+      flex: 1;
+      padding: 9px 8px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      background: #141829;
+      color: #4b5574;
+      transition: all 0.15s;
+    }
+    .btn-group button:not(:last-child) { border-right: 1px solid #1e2540; }
+    .btn-group button.active {
+      background: #3b6cf6;
+      color: white;
+    }
+
+    /* Input fields */
+    .input-row { display: flex; gap: 8px; margin-bottom: 12px; }
+    .input-field { flex: 1; }
+    .input-field label {
+      font-size: 11px;
+      color: #4b5574;
+      display: block;
+      margin-bottom: 4px;
+    }
+    .input-field input {
+      width: 100%;
+      background: #141829;
+      border: 1px solid #1e2540;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #e2e8f0;
+      transition: border-color 0.15s;
+    }
+    .input-field input:focus {
+      outline: none;
+      border-color: #3b6cf6;
+    }
+
+    /* ── Right panel ── */
+    .right-panel {
+      flex: 1;
+      background: #111525;
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    /* Tabs */
+    .tab-strip {
+      display: flex;
+      gap: 0;
+      margin-bottom: 18px;
+      border-bottom: 1px solid #1e2540;
+    }
+    .tab-strip button {
+      padding: 9px 20px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      background: transparent;
+      color: #4b5574;
+      transition: all 0.15s;
+    }
+    .tab-strip button:hover { color: #8892a8; }
+    .tab-strip button.active {
+      color: #7da4fa;
+      border-bottom-color: #3b6cf6;
+    }
+
+    /* Bridge card */
+    .bridge-card {
+      background: linear-gradient(135deg, #141829 0%, #181d33 100%);
+      border: 1px solid #1e2540;
+      border-radius: 10px;
+      padding: 18px 20px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+    .bridge-value {
+      font-size: 28px;
+      font-weight: 800;
+      line-height: 1;
+    }
+    .bridge-sub {
+      font-size: 12px;
+      color: #4b5574;
+      margin-top: 4px;
+    }
+    .bridge-desc {
+      font-size: 12px;
+      color: #4b5574;
+      line-height: 1.6;
+      max-width: 360px;
+    }
+    .bridge-desc strong { color: #8892a8; }
+
+    /* Baseline label */
+    .baseline-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #4b5574;
+      margin-bottom: 10px;
+      background: #0f1220;
+      border-radius: 6px;
+      padding: 7px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border: 1px solid #1a1f35;
+    }
+    .baseline-label .hint {
+      font-weight: 500;
+      letter-spacing: 0;
+      text-transform: none;
+      font-size: 10px;
+      color: #3d4563;
+    }
+
+    /* Metric cards */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .metric-card {
+      background: #141829;
+      border: 1px solid #1e2540;
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+    .metric-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: #4b5574;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+    .metric-value {
+      font-size: 22px;
+      font-weight: 800;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .metric-sub {
+      font-size: 10px;
+      color: #3d4563;
+    }
+
+    /* Status badge */
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .badge.conservative {
+      background: rgba(34, 197, 94, 0.1);
+      color: #4ade80;
+      border: 1px solid rgba(34, 197, 94, 0.2);
+    }
+    .badge.marginal {
+      background: rgba(251, 191, 36, 0.1);
+      color: #fbbf24;
+      border: 1px solid rgba(251, 191, 36, 0.2);
+    }
+
+    /* Government income section */
+    .govt-section {
+      background: #141829;
+      border: 1px solid #1e2540;
+      border-radius: 10px;
+      padding: 16px 18px;
+      margin-bottom: 16px;
+    }
+    .govt-section .section-label { margin-top: 0; }
+    .govt-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+    .govt-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 5px 0;
+      font-size: 13px;
+      color: #8892a8;
+      border-bottom: 1px solid #1a1f35;
+    }
+    .govt-total {
+      display: flex;
+      justify-content: space-between;
+      padding-top: 8px;
+      margin-top: 4px;
+      font-weight: 700;
+      color: #e2e8f0;
+      font-size: 13px;
+    }
+    .after-benefits-box {
+      background: linear-gradient(135deg, #0c0f1a 0%, #111525 100%);
+      border: 1px solid #1e2540;
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .after-benefits-box .ab-label {
+      font-size: 10px;
+      color: #4b5574;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 4px;
+    }
+    .after-benefits-box .ab-value {
+      font-size: 20px;
+      font-weight: 800;
+      margin-bottom: 10px;
+    }
+
+    /* Chart area */
+    .chart-card {
+      background: #141829;
+      border: 1px solid #1e2540;
+      border-radius: 10px;
+      padding: 16px 18px;
+      margin-bottom: 16px;
+    }
+    .chart-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .chart-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #4b5574;
+    }
+    .chart-link {
+      background: none;
+      border: none;
+      color: #3b6cf6;
+      font-weight: 600;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    /* Strategy pills */
+    .strategy-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-bottom: 14px;
+    }
+    .strategy-pill {
+      padding: 5px 12px;
+      font-size: 11px;
+      font-weight: 500;
+      border: 1px solid #1e2540;
+      border-radius: 20px;
+      cursor: pointer;
+      background: #0f1220;
+      color: #4b5574;
+      transition: all 0.15s;
+    }
+    .strategy-pill:hover {
+      border-color: #2a3460;
+      color: #8892a8;
+    }
+    .strategy-pill.active {
+      border-color: #3b6cf6;
+      background: rgba(59, 108, 246, 0.1);
+      color: #7da4fa;
+      font-weight: 700;
+    }
+
+    /* Fake chart placeholder */
+    .chart-placeholder {
+      width: 100%;
+      height: 200px;
+      background: linear-gradient(180deg, #141829 0%, #111525 100%);
+      border-radius: 6px;
+      position: relative;
+      overflow: hidden;
+    }
+    .chart-placeholder svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .chart-note {
+      font-size: 10px;
+      color: #3d4563;
+      font-style: italic;
+      margin-top: 8px;
+      line-height: 1.5;
+    }
+    .chart-note strong { color: #4b5574; }
+
+    .chart-disclaimer {
+      background: #0f1220;
+      border: 1px solid #1a1f35;
+      border-radius: 6px;
+      padding: 8px 12px;
+      margin-top: 10px;
+      font-size: 10px;
+      color: #3d4563;
+      line-height: 1.5;
+    }
+    .chart-disclaimer strong { color: #4b5574; }
+
+    /* ── Methods tab ── */
+    .methods-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .mc-btn {
+      padding: 8px 18px;
+      font-size: 12px;
+      font-weight: 700;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      background: linear-gradient(135deg, #3b6cf6, #5a4cf6);
+      color: white;
+      box-shadow: 0 2px 8px rgba(59, 108, 246, 0.25);
+      transition: all 0.15s;
+    }
+    .mc-btn:hover {
+      box-shadow: 0 4px 16px rgba(59, 108, 246, 0.35);
+      transform: translateY(-1px);
+    }
+
+    .toggle-group {
+      display: flex;
+      border: 1px solid #1e2540;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .toggle-group button {
+      padding: 5px 14px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      background: #141829;
+      color: #4b5574;
+      transition: all 0.15s;
+    }
+    .toggle-group button.active {
+      background: #3b6cf6;
+      color: white;
+    }
+
+    /* Method table header */
+    .method-table-header {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+      gap: 0;
+      padding: 8px 14px;
+      font-size: 10px;
+      font-weight: 700;
+      color: #3d4563;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      border-bottom: 1px solid #1e2540;
+    }
+
+    /* Method row */
+    .method-row {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+      gap: 0;
+      padding: 14px;
+      align-items: start;
+      border-bottom: 1px solid #1a1f35;
+      transition: background 0.15s;
+    }
+    .method-row:hover {
+      background: rgba(59, 108, 246, 0.03);
+    }
+    .method-row.supported {
+      background: rgba(34, 197, 94, 0.03);
+    }
+    .method-row .method-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .method-row .base-tag {
+      font-size: 9px;
+      background: #1e2540;
+      color: #4b5574;
+      padding: 1px 6px;
+      border-radius: 8px;
+      font-weight: 600;
+    }
+    .info-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      font-size: 10px;
+      font-weight: 700;
+      background: #1e2540;
+      color: #4b5574;
+      cursor: help;
+      flex-shrink: 0;
+      transition: all 0.15s;
+    }
+    .info-icon:hover {
+      background: #3b6cf6;
+      color: white;
+    }
+    .method-row .method-desc {
+      font-size: 11px;
+      color: #3d4563;
+      line-height: 1.5;
+      margin-top: 3px;
+    }
+    .method-row .rate-value {
+      font-size: 15px;
+      font-weight: 800;
+      text-align: right;
+    }
+    .method-row .rate-sub {
+      font-size: 10px;
+      color: #3d4563;
+      text-align: right;
+      margin-top: 2px;
+    }
+    .method-row .cell-right {
+      text-align: right;
+      font-size: 13px;
+      font-weight: 600;
+      color: #8892a8;
+    }
+    .method-row .cell-sub {
+      font-size: 10px;
+      color: #3d4563;
+      text-align: right;
+      margin-top: 2px;
+    }
+
+    /* Colors */
+    .green { color: #4ade80; }
+    .amber { color: #fbbf24; }
+    .red { color: #f87171; }
+    .blue { color: #60a5fa; }
+    .muted { color: #4b5574; }
+
+    /* Excluded note */
+    .excluded-note {
+      padding: 14px;
+      font-size: 12px;
+      color: #3d4563;
+      line-height: 1.6;
+    }
+    .excluded-note strong { color: #4b5574; }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #1e2540; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #2a3460; }
+
+    /* Footer text */
+    .panel-footer {
+      font-size: 11px;
+      color: #2d3555;
+      font-style: italic;
+      text-align: center;
+      padding-top: 14px;
+      margin-top: 14px;
+      border-top: 1px solid #1a1f35;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <h1>Retirement Scenario Explorer</h1>
+    <span class="subtitle">Morningstar State of Retirement Income 2025</span>
+  </div>
+
+  <!-- Body -->
+  <div class="body-wrap">
+
+    <!-- LEFT PANEL -->
+    <div class="left-panel">
+      <div class="section-label">Saved Scenarios</div>
+      <p class="helper-text">Click a slot to load it. Adjust inputs below, then save back to any slot.</p>
+
+      <div class="scenario-card active">
+        <div class="name">Scenario 1</div>
+        <div class="meta">$4.8M · $215K/yr · Age 49 · 74% eq</div>
+        <div class="actions"><button class="save-btn">↓ Save current inputs here</button></div>
+      </div>
+      <div class="scenario-card">
+        <div class="name">Scenario 2</div>
+        <div class="meta">$5.8M · $215K/yr · Age 51 · 55% eq</div>
+        <div class="actions"><button class="save-btn">↓ Save current inputs here</button></div>
+      </div>
+      <div class="scenario-card">
+        <div class="name">Scenario 3</div>
+        <div class="meta">$5.0M · $175K/yr · Age 49 · 55% eq</div>
+        <div class="actions"><button class="save-btn">↓ Save current inputs here</button></div>
+      </div>
+
+      <div class="info-callout">
+        The saved scenarios contain <strong>example values</strong> to illustrate different retirement profiles.
+        Adjust all inputs freely — nothing here is real financial advice.
+      </div>
+
+      <div class="section-label">Portfolio & Spending</div>
+
+      <div class="slider-group">
+        <div class="slider-label"><span class="lbl">Portfolio Size</span><span class="val">$4.8M</span></div>
+        <div class="slider-track">
+          <div class="slider-fill" style="width: 42%;"></div>
+          <div class="slider-thumb" style="left: calc(42% - 7px);"></div>
+        </div>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-label"><span class="lbl">Annual Spending</span><span class="val">$215K</span></div>
+        <div class="slider-track">
+          <div class="slider-fill" style="width: 37%;"></div>
+          <div class="slider-thumb" style="left: calc(37% - 7px);"></div>
+        </div>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-label"><span class="lbl">Retirement Age</span><span class="val">49</span></div>
+        <div class="slider-track">
+          <div class="slider-fill" style="width: 16%;"></div>
+          <div class="slider-thumb" style="left: calc(16% - 7px);"></div>
+        </div>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-label"><span class="lbl">Equity / Bond Split</span><span class="val">74% / 26%</span></div>
+        <div class="slider-track">
+          <div class="slider-fill" style="width: 74%;"></div>
+          <div class="slider-thumb" style="left: calc(74% - 7px);"></div>
+        </div>
+        <div class="slider-note">
+          Morningstar models two asset classes: equities (5.7% real) and bonds (2.0% real).
+        </div>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-label"><span class="lbl">Life Expectancy</span><span class="val">92</span></div>
+        <div class="slider-track">
+          <div class="slider-fill" style="width: 68%;"></div>
+          <div class="slider-thumb" style="left: calc(68% - 7px);"></div>
+        </div>
+      </div>
+
+      <div class="section-label">Social Security</div>
+      <div class="btn-group">
+        <button>Claim at 62</button>
+        <button>Claim at 67</button>
+        <button class="active">Claim at 70</button>
+      </div>
+      <div class="input-row">
+        <div class="input-field">
+          <label>SS Annual Benefit</label>
+          <input type="text" value="$53,000" />
+        </div>
+      </div>
+
+      <div class="section-label">Other Government Income</div>
+      <div class="input-row">
+        <div class="input-field">
+          <label>CPP / Pension Annual</label>
+          <input type="text" value="$15,000" />
+        </div>
+        <div class="input-field">
+          <label>OAS / Other Annual</label>
+          <input type="text" value="$7,500" />
+        </div>
+      </div>
+
+      <div class="panel-footer">
+        All inputs editable. Save any configuration to a slot above.
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL — Scenario Analysis -->
+    <div class="right-panel">
+      <div class="tab-strip">
+        <button class="active">Scenario Analysis</button>
+        <button>Compare Methods</button>
+      </div>
+
+      <!-- Bridge card -->
+      <div class="bridge-card">
+        <div>
+          <div class="bridge-value amber">21 years</div>
+          <div class="bridge-sub">Age 49 → 70</div>
+        </div>
+        <div class="bridge-desc">
+          During this window you draw <strong>$215,000/yr</strong> entirely from the portfolio.
+          After age 70, government income offsets <strong>$75,500/yr</strong>.
+        </div>
+      </div>
+
+      <!-- Baseline label -->
+      <div class="baseline-label">
+        <span>Fixed Real Baseline — constant inflation-adjusted spending</span>
+        <span class="hint">Use the chart below to explore other strategies</span>
+      </div>
+
+      <!-- Metric cards -->
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-label">During Bridge · before benefits</div>
+          <div class="metric-value amber">4.5%</div>
+          <div class="metric-sub">$215K ÷ $4.8M</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Safe Rate · 43yr horizon</div>
+          <div class="metric-value blue">3.2%</div>
+          <div class="metric-sub">Morningstar 2025 · 90% success</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Status</div>
+          <div style="margin: 8px 0 6px;">
+            <span class="badge marginal">⚠ Aggressive</span>
+          </div>
+          <div class="metric-sub">Above safe rate — higher failure risk</div>
+        </div>
+      </div>
+
+      <!-- Government income -->
+      <div class="govt-section">
+        <div class="section-label">Government Income (from age 70)</div>
+        <div class="govt-grid">
+          <div>
+            <div class="govt-row"><span>Social Security</span><span>$53,000/yr</span></div>
+            <div class="govt-row"><span>CPP / Pension</span><span>$15,000/yr</span></div>
+            <div class="govt-row"><span>OAS / Other</span><span>$7,500/yr</span></div>
+            <div class="govt-total"><span>Total offset</span><span>$75,500/yr</span></div>
+          </div>
+          <div class="after-benefits-box">
+            <div class="ab-label">After Benefits Begin · age 70+</div>
+            <div class="ab-value amber">$139,500/yr</div>
+            <div class="ab-label">Adjusted Withdrawal Rate</div>
+            <div class="ab-value green">2.9%</div>
+            <span class="badge conservative">✓ Conservative</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chart area -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">Portfolio Projection — Age 49 to 92</span>
+          <button class="chart-link">Compare all 8 strategies →</button>
+        </div>
+
+        <div class="strategy-pills">
+          <span class="strategy-pill active">Fixed Real</span>
+          <span class="strategy-pill">Forgo Inflation</span>
+          <span class="strategy-pill">RMD</span>
+          <span class="strategy-pill">Guardrails</span>
+          <span class="strategy-pill">Spending Decline</span>
+          <span class="strategy-pill">Endowment</span>
+          <span class="strategy-pill">Constant %</span>
+          <span class="strategy-pill">Vanguard</span>
+        </div>
+
+        <!-- Fake chart with SVG lines -->
+        <div class="chart-placeholder">
+          <svg viewBox="0 0 600 200" preserveAspectRatio="none">
+            <!-- Grid lines -->
+            <line x1="0" y1="50" x2="600" y2="50" stroke="#1e2540" stroke-width="0.5" />
+            <line x1="0" y1="100" x2="600" y2="100" stroke="#1e2540" stroke-width="0.5" />
+            <line x1="0" y1="150" x2="600" y2="150" stroke="#1e2540" stroke-width="0.5" />
+            <!-- SS reference line -->
+            <line x1="293" y1="0" x2="293" y2="200" stroke="#4b5574" stroke-width="0.5" stroke-dasharray="4 3" />
+            <text x="298" y="12" fill="#3d4563" font-size="8" font-family="Inter">SS kicks in</text>
+            <!-- Zero line -->
+            <line x1="0" y1="185" x2="600" y2="185" stroke="#f87171" stroke-width="0.5" stroke-dasharray="4 3" opacity="0.4" />
+            <!-- Optimistic -->
+            <path d="M0,60 Q100,45 200,35 Q293,30 300,22 Q400,15 500,8 L600,5" fill="none" stroke="#4ade80" stroke-width="2.5" />
+            <!-- Base -->
+            <path d="M0,60 Q100,65 200,75 Q293,90 300,70 Q400,55 500,45 L600,40" fill="none" stroke="#3b82f6" stroke-width="2.5" />
+            <!-- Pessimistic -->
+            <path d="M0,60 Q100,85 200,120 Q293,155 300,140 Q380,160 450,175 L500,185 L600,185" fill="none" stroke="#f87171" stroke-width="2.5" />
+            <!-- Axis labels -->
+            <text x="4" y="58" fill="#3d4563" font-size="7" font-family="Inter">$4.8M</text>
+            <text x="4" y="108" fill="#3d4563" font-size="7" font-family="Inter">$2.4M</text>
+            <text x="4" y="153" fill="#3d4563" font-size="7" font-family="Inter">$1.0M</text>
+          </svg>
+        </div>
+
+        <div class="chart-note">
+          <strong>Fixed Real (Base Case):</strong> Withdraw a fixed inflation-adjusted amount each year.
+          Returns: 74% equities (5.7% real) + 26% bonds (2.0% real) = 4.7% expected ±2%.
+        </div>
+
+        <div class="chart-disclaimer">
+          This is a <strong>deterministic</strong> projection — it assumes the same return every year.
+          Real markets have good years and bad years, and a bad sequence early in retirement is
+          disproportionately harmful. See <strong>Compare Methods</strong> for starting-rate analysis that accounts for this risk.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</body>
+</html>

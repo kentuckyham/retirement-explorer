@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Restless Builder</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #0a0a0a;
+      color: #e5e5e5;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Subtle animated gradient background */
+    .bg-glow {
+      position: fixed;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(ellipse at 30% 50%, rgba(56, 100, 220, 0.06) 0%, transparent 50%),
+                  radial-gradient(ellipse at 70% 50%, rgba(168, 85, 247, 0.04) 0%, transparent 50%);
+      animation: drift 20s ease-in-out infinite alternate;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    @keyframes drift {
+      0%   { transform: translate(0, 0); }
+      100% { transform: translate(-5%, 3%); }
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Header */
+    header {
+      padding: 80px 0 60px;
+    }
+
+    .site-name {
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #737373;
+      margin-bottom: 24px;
+    }
+
+    .hero-title {
+      font-size: clamp(32px, 5vw, 48px);
+      font-weight: 700;
+      line-height: 1.2;
+      color: #fafafa;
+      margin-bottom: 16px;
+    }
+
+    .hero-title .accent {
+      background: linear-gradient(135deg, #60a5fa, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-sub {
+      font-size: 17px;
+      line-height: 1.7;
+      color: #a3a3a3;
+      max-width: 540px;
+    }
+
+    /* Divider */
+    .divider {
+      height: 1px;
+      background: linear-gradient(to right, transparent, #262626, transparent);
+      margin: 20px 0 48px;
+    }
+
+    /* Section label */
+    .section-label {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #525252;
+      margin-bottom: 24px;
+    }
+
+    /* Project cards */
+    .project-card {
+      display: block;
+      text-decoration: none;
+      color: inherit;
+      border: 1px solid #1a1a1a;
+      border-radius: 16px;
+      padding: 28px 28px 24px;
+      margin-bottom: 16px;
+      background: rgba(255, 255, 255, 0.02);
+      transition: all 0.25s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .project-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(96, 165, 250, 0.06), rgba(167, 139, 250, 0.06));
+      opacity: 0;
+      transition: opacity 0.25s ease;
+    }
+
+    .project-card:hover {
+      border-color: #2a2a2a;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    .project-card:hover::before {
+      opacity: 1;
+    }
+
+    .project-card-inner {
+      position: relative;
+      z-index: 1;
+    }
+
+    .project-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 10px;
+    }
+
+    .project-name {
+      font-size: 20px;
+      font-weight: 600;
+      color: #fafafa;
+    }
+
+    .project-arrow {
+      font-size: 18px;
+      color: #525252;
+      transition: all 0.25s ease;
+      flex-shrink: 0;
+      margin-top: 3px;
+    }
+
+    .project-card:hover .project-arrow {
+      color: #60a5fa;
+      transform: translate(3px, -3px);
+    }
+
+    .project-desc {
+      font-size: 14px;
+      line-height: 1.65;
+      color: #a3a3a3;
+      margin-bottom: 16px;
+    }
+
+    .project-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .tag {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      color: #737373;
+      border: 1px solid #1f1f1f;
+    }
+
+    /* Coming soon card */
+    .project-card.coming-soon {
+      opacity: 0.5;
+      cursor: default;
+    }
+
+    .project-card.coming-soon:hover {
+      transform: none;
+      border-color: #1a1a1a;
+      box-shadow: none;
+    }
+
+    .project-card.coming-soon:hover::before {
+      opacity: 0;
+    }
+
+    .project-card.coming-soon:hover .project-arrow {
+      color: #525252;
+      transform: none;
+    }
+
+    .badge {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: rgba(250, 204, 21, 0.1);
+      color: #facc15;
+      border: 1px solid rgba(250, 204, 21, 0.15);
+    }
+
+    /* Footer */
+    footer {
+      padding: 60px 0 48px;
+      margin-top: 40px;
+    }
+
+    .footer-line {
+      height: 1px;
+      background: linear-gradient(to right, transparent, #1a1a1a, transparent);
+      margin-bottom: 32px;
+    }
+
+    .footer-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .footer-text {
+      font-size: 13px;
+      color: #404040;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 20px;
+    }
+
+    .footer-links a {
+      font-size: 13px;
+      color: #525252;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .footer-links a:hover {
+      color: #a3a3a3;
+    }
+
+    /* Responsive */
+    @media (max-width: 480px) {
+      header { padding: 48px 0 40px; }
+      .project-card { padding: 20px; }
+      .footer-content { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-glow"></div>
+
+  <div class="container">
+    <header>
+      <div class="site-name">Restless Builder</div>
+      <h1 class="hero-title">Tools I build to <span class="accent">think better</span></h1>
+      <p class="hero-sub">
+        Interactive apps for exploring decisions that matter —
+        retirement planning, financial modeling, and whatever else
+        I get curious about.
+      </p>
+    </header>
+
+    <div class="divider"></div>
+
+    <div class="section-label">Projects</div>
+
+    <a href="/retirement-explorer" class="project-card">
+      <div class="project-card-inner">
+        <div class="project-header">
+          <span class="project-name">Retirement Scenario Explorer</span>
+          <span class="project-arrow">&nearr;</span>
+        </div>
+        <p class="project-desc">
+          Compare 8 withdrawal strategies side by side, grounded in Morningstar's
+          2025 retirement income research. Includes Monte Carlo simulation,
+          deterministic projections, and interactive scenario modeling.
+        </p>
+        <div class="project-tags">
+          <span class="tag">React</span>
+          <span class="tag">Monte Carlo</span>
+          <span class="tag">Morningstar Data</span>
+          <span class="tag">Single-File App</span>
+        </div>
+      </div>
+    </a>
+
+    <div class="project-card coming-soon">
+      <div class="project-card-inner">
+        <div class="project-header">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span class="project-name">More coming</span>
+            <span class="badge">Soon</span>
+          </div>
+          <span class="project-arrow">&nearr;</span>
+        </div>
+        <p class="project-desc" style="margin-bottom: 0;">
+          New tools and experiments in progress.
+        </p>
+      </div>
+    </div>
+
+    <footer>
+      <div class="footer-line"></div>
+      <div class="footer-content">
+        <span class="footer-text">Built with curiosity and too much coffee.</span>
+        <div class="footer-links">
+          <a href="https://github.com/kentuckyham" target="_blank" rel="noopener">GitHub</a>
+        </div>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

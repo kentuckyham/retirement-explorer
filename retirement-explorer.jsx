@@ -351,9 +351,9 @@ const fmtDollars = n => {
 const fmtPct = n => `${n.toFixed(1)}%`;
 
 const STATUS = {
-  safe:       { label: "\u2713 Safe",       color: "#22c55e", bg: "rgba(34,197,94,0.12)",  text: "Within safe withdrawal range" },
-  marginal:   { label: "~ Marginal",   color: "#f59e0b", bg: "rgba(245,158,11,0.12)", text: "Consider Guardrails approach" },
-  aggressive: { label: "\u26A0 Aggressive", color: "#ef4444", bg: "rgba(239,68,68,0.12)",  text: "Above safe withdrawal range" },
+  safe:       { label: "\u2713 Safe",       color: "#4ade80", bg: "rgba(34,197,94,0.12)",  text: "Within safe withdrawal range" },
+  marginal:   { label: "~ Marginal",   color: "#fbbf24", bg: "rgba(245,158,11,0.12)", text: "Consider Guardrails approach" },
+  aggressive: { label: "\u26A0 Aggressive", color: "#f87171", bg: "rgba(239,68,68,0.12)",  text: "Above safe withdrawal range" },
 };
 
 function classify(rate, safe) {
@@ -367,21 +367,21 @@ function classify(rate, safe) {
 // ─────────────────────────────────────────────────────────────────────────────
 function SectionLabel({ children, mt = 18 }) {
   return (
-    <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em",
-      textTransform: "uppercase", color: "#94a3b8", marginBottom: 8, marginTop: mt }}>
+    <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em",
+      textTransform: "uppercase", color: "#7a8499", marginBottom: 8, marginTop: mt }}>
       {children}
     </div>
   );
 }
 
-function MetricCard({ label, value, sub, valueColor = "#f8fafc", children, style: extraStyle }) {
+function MetricCard({ label, value, sub, valueColor = "#c8cdd8", children, style: extraStyle }) {
   return (
-    <div style={{ background: "#0f172a", borderRadius: 8, padding: "14px 12px", minWidth: 0, ...extraStyle }}>
+    <div style={{ background: "linear-gradient(135deg, #111827, #1a1f35)", borderRadius: 8, padding: "14px 12px", minWidth: 0, ...extraStyle }}>
       <div style={{ fontSize: 10, color: "#64748b", letterSpacing: "0.06em",
         textTransform: "uppercase", marginBottom: 6 }}>{label}</div>
       {value && <div style={{ fontSize: 22, fontWeight: 800, color: valueColor, lineHeight: 1, marginBottom: 4 }}>{value}</div>}
       {children}
-      {sub && <div style={{ fontSize: 11, color: "#475569", marginTop: 4 }}>{sub}</div>}
+      {sub && <div style={{ fontSize: 11, color: "#8892a8", marginTop: 4 }}>{sub}</div>}
     </div>
   );
 }
@@ -391,11 +391,11 @@ function Slider({ label, value, onChange, min, max, step, fmt }) {
     <div style={{ marginBottom: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
         <span style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>{label}</span>
-        <span style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>{fmt(value)}</span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: "#e2e8f0" }}>{fmt(value)}</span>
       </div>
       <input type="range" min={min} max={max} step={step} value={value}
         onChange={e => onChange(Number(e.target.value))}
-        style={{ width: "100%", accentColor: "#3b82f6", cursor: "pointer" }} />
+        style={{ width: "100%", accentColor: "#3b6cf6", cursor: "pointer" }} />
     </div>
   );
 }
@@ -413,9 +413,9 @@ function Badge({ s, size = 13 }) {
 function ChartTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{ background: "#0f172a", border: "1px solid #334155",
+    <div style={{ background: "linear-gradient(135deg, #111827, #1a1f35)", border: "1px solid #334155",
       borderRadius: 6, padding: "8px 12px", fontSize: 12 }}>
-      <div style={{ color: "#94a3b8", marginBottom: 4 }}>Year {label}</div>
+      <div style={{ color: "#64748b", marginBottom: 4 }}>Year {label}</div>
       {payload.map(p => p.value != null && (
         <div key={p.dataKey} style={{ color: p.color, marginBottom: 2 }}>
           {p.name}: {fmtDollars(p.value)}
@@ -501,7 +501,7 @@ function RetirementExplorer() {
   const adjustedRate   = (netDraw / inp.portfolio) * 100;
   const status         = classify(withdrawalRate, safeRate);
   const adjStatus      = classify(adjustedRate, safeRate);
-  const bridgeColor    = bridge > 15 ? "#ef4444" : bridge >= 10 ? "#f59e0b" : "#22c55e";
+  const bridgeColor    = bridge > 15 ? "#f87171" : bridge >= 10 ? "#fbbf24" : "#4ade80";
   const expectedReturn = getExpectedReturn(inp.equityPct);
   const returnPess     = ((expectedReturn - CMA.spread) * 100).toFixed(1);
   const returnBase     = (expectedReturn * 100).toFixed(1);
@@ -596,27 +596,27 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
 
   // ── Render ──
   return (
-    <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-      background: "#f1f5f9", minHeight: "100vh", padding: 16 }}>
+    <div style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+      background: "#0c0f1a", minHeight: "100vh", padding: 16 }}>
 
       {/* Header */}
-      <div style={{ background: "#0f172a", color: "white", padding: "12px 20px",
+      <div style={{ background: "linear-gradient(135deg, #111827, #1a1f35)", color: "#f1f5f9", padding: "12px 20px",
         borderRadius: "10px 10px 0 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <h1 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>Retirement Scenario Explorer</h1>
-        <span style={{ fontSize: 12, color: "#94a3b8" }}>Morningstar State of Retirement Income 2025</span>
+        <span style={{ fontSize: 12, color: "#64748b" }}>Morningstar State of Retirement Income 2025</span>
       </div>
 
       {/* Two-panel body */}
-      <div style={{ display: "flex", background: "white", border: "1px solid #e2e8f0",
+      <div style={{ display: "flex", background: "#141829", border: "1px solid #1e2540",
         borderTop: "none", borderRadius: "0 0 10px 10px", minHeight: "calc(100vh - 80px)" }}>
 
         {/* LEFT PANEL */}
-        <div style={{ width: "37%", borderRight: "1px solid #e2e8f0", padding: 20,
-          background: "#f8fafc", borderRadius: "0 0 0 10px", overflowY: "auto" }}>
+        <div style={{ width: "37%", borderRight: "1px solid #1e2540", padding: 20,
+          background: "#0f1220", borderRadius: "0 0 0 10px", overflowY: "auto" }}>
 
           {/* Scenario save slots */}
           <SectionLabel mt={0}>Saved Scenarios</SectionLabel>
-          <p style={{ fontSize: 11, color: "#94a3b8", marginBottom: 10, lineHeight: 1.5 }}>
+          <p style={{ fontSize: 13, color: "#64748b", marginBottom: 10, lineHeight: 1.5 }}>
             Click a slot to load it. Adjust inputs below, then save back to any slot. Rename by clicking the pencil.
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 4 }}>
@@ -626,8 +626,8 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
               return (
                 <div key={i} style={{
                   borderRadius: 8,
-                  border: isActive ? "2px solid #3b82f6" : "2px solid #e2e8f0",
-                  background: isActive ? "#eff6ff" : "white",
+                  border: isActive ? "2px solid #3b6cf6" : "2px solid #1e2540",
+                  background: isActive ? "rgba(59, 108, 246, 0.1)" : "#0f1220",
                   overflow: "hidden",
                   transition: "border-color 0.15s",
                 }}>
@@ -644,24 +644,24 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
                           onChange={e => setEditingVal(e.target.value)}
                           onBlur={() => commitRename(i)}
                           onKeyDown={e => { if (e.key === "Enter") commitRename(i); }}
-                          style={{ flex: 1, fontSize: 13, fontWeight: 600, padding: "1px 5px",
-                            border: "1px solid #3b82f6", borderRadius: 4, outline: "none",
-                            color: "#0f172a" }}
+                          style={{ flex: 1, fontSize: 15, fontWeight: 600, padding: "1px 5px",
+                            border: "1px solid #3b6cf6", borderRadius: 4, outline: "none",
+                            color: "#e2e8f0" }}
                         />
                       ) : (
-                        <span style={{ fontSize: 13, fontWeight: 600,
-                          color: isActive ? "#1d4ed8" : "#1e293b", flex: 1 }}>
+                        <span style={{ fontSize: 15, fontWeight: 600,
+                          color: isActive ? "#7da4fa" : "#e2e8f0", flex: 1 }}>
                           {s.label}
                         </span>
                       )}
                       <span
                         title="Rename"
                         onClick={e => startRename(i, e)}
-                        style={{ fontSize: 13, color: "#cbd5e1", cursor: "pointer",
+                        style={{ fontSize: 13, color: "#3d4563", cursor: "pointer",
                           lineHeight: 1, padding: "0 2px" }}
                       >{"\u270E"}</span>
                     </div>
-                    <div style={{ fontSize: 11, color: isActive ? "#3b82f6" : "#94a3b8" }}>
+                    <div style={{ fontSize: 13, color: isActive ? "#3b6cf6" : "#64748b" }}>
                       {fmtDollars(s.portfolio)} &middot; ${(s.spending / 1000).toFixed(0)}K/yr &middot; Age {s.retirementAge} &middot; {s.equityPct}% eq
                     </div>
                   </button>
@@ -670,10 +670,10 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
                       onClick={e => saveToSlot(i, e)}
                       title="Overwrite this slot with your current inputs"
                       style={{
-                        fontSize: 10, fontWeight: 600, cursor: "pointer",
+                        fontSize: 12, fontWeight: 600, cursor: "pointer",
                         background: "none", border: "none", padding: "2px 6px",
                         borderRadius: 4,
-                        color: isSaved ? "#22c55e" : "#94a3b8",
+                        color: isSaved ? "#4ade80" : "#64748b",
                       }}
                     >
                       {isSaved ? "\u2713 Saved!" : "\u2193 Save current inputs here"}
@@ -685,9 +685,9 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
           </div>
 
           {/* Example values callout */}
-          <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 6,
-            padding: "8px 12px", marginTop: 14, marginBottom: 10, fontSize: 11,
-            color: "#1e40af", lineHeight: 1.6 }}>
+          <div style={{ background: "rgba(59, 108, 246, 0.06)", border: "1px solid rgba(59, 108, 246, 0.2)", borderRadius: 6,
+            padding: "10px 14px", marginTop: 14, marginBottom: 10, fontSize: 13,
+            color: "#5a7ec2", lineHeight: 1.6 }}>
             The saved scenarios contain <strong>example values</strong> to illustrate different retirement
             profiles. Adjust all inputs freely &mdash; nothing here is real financial advice.
           </div>
@@ -698,15 +698,15 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
           <Slider label="Annual Spending"   value={inp.spending}       onChange={v => set("spending", v)}       min={50_000}    max={500_000}    step={5_000}   fmt={v => `$${(v/1000).toFixed(0)}K`} />
           <Slider label="Retirement Age"    value={inp.retirementAge}  onChange={v => set("retirementAge", v)}  min={45}        max={70}         step={1}       fmt={v => v} />
           <Slider label="Equity / Bond Split" value={inp.equityPct}      onChange={v => set("equityPct", v)}      min={0}         max={100}        step={1}       fmt={v => `${v}% / ${100-v}%`} />
-          <div style={{ fontSize: 10, color: "#94a3b8", marginTop: -8, marginBottom: 12, lineHeight: 1.4 }}>
+          <div style={{ fontSize: 10, color: "#64748b", marginTop: -8, marginBottom: 12, lineHeight: 1.4 }}>
             Morningstar models two asset classes: equities ({(CMA.equity*100).toFixed(1)}% real) and
             bonds ({(CMA.bond*100).toFixed(1)}% real). Cash is not modeled separately.
           </div>
           <Slider label="Life Expectancy"   value={inp.lifeExpectancy} onChange={v => set("lifeExpectancy", v)} min={75}        max={100}        step={1}       fmt={v => v} />
           {horizon > 40 && (
-            <div style={{ background: "#fef3c7", border: "1px solid #fcd34d", borderRadius: 6,
+            <div style={{ background: "rgba(251, 191, 36, 0.08)", border: "1px solid rgba(251, 191, 36, 0.2)", borderRadius: 6,
               padding: "6px 10px", marginTop: -6, marginBottom: 10, fontSize: 11,
-              color: "#92400e", lineHeight: 1.5 }}>
+              color: "#d97706", lineHeight: 1.5 }}>
               {"\u26A0"} Planning horizon is {horizon} years. Morningstar data caps at 40 years &mdash; rates
               beyond that are extrapolated and less reliable.
             </div>
@@ -714,25 +714,25 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
 
           {/* Social Security */}
           <SectionLabel>Social Security</SectionLabel>
-          <div style={{ display: "flex", border: "1px solid #e2e8f0", borderRadius: 6,
+          <div style={{ display: "flex", border: "1px solid #1e2540", borderRadius: 6,
             overflow: "hidden", marginBottom: 10 }}>
             {[62, 67, 70].map(age => (
               <button key={age} onClick={() => setSsAge(age)} style={{
                 flex: 1, padding: "8px", textAlign: "center", fontSize: 13,
                 fontWeight: 600, cursor: "pointer", border: "none",
-                background: inp.ssClaimAge === age ? "#0f172a" : "white",
-                color: inp.ssClaimAge === age ? "white" : "#64748b",
+                background: inp.ssClaimAge === age ? "#0f172a" : "#0f1220",
+                color: inp.ssClaimAge === age ? "white" : "#4b5574",
               }}>Claim at {age}</button>
             ))}
           </div>
           <div style={{ marginBottom: 14 }}>
-            <label style={{ fontSize: 11, color: "#94a3b8", display: "block", marginBottom: 3 }}>
+            <label style={{ fontSize: 11, color: "#64748b", display: "block", marginBottom: 3 }}>
               SS Annual Benefit (editable)
             </label>
             <input type="number" value={inp.ssBenefit}
               onChange={e => set("ssBenefit", Number(e.target.value))}
-              style={{ width: "100%", background: "white", border: "1px solid #e2e8f0",
-                borderRadius: 6, padding: "7px 10px", fontSize: 13, fontWeight: 600 }} />
+              style={{ width: "100%", background: "#141829", border: "1px solid #1e2540",
+                borderRadius: 6, padding: "7px 10px", fontSize: 13, fontWeight: 600, color: "#e2e8f0" }} />
           </div>
 
           {/* Other government income */}
@@ -740,17 +740,17 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
           <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
             {[["CPP / Pension Annual", "cpp"], ["OAS / Other Annual", "oas"]].map(([lbl, key]) => (
               <div key={key} style={{ flex: 1 }}>
-                <label style={{ fontSize: 11, color: "#94a3b8", display: "block", marginBottom: 3 }}>{lbl}</label>
+                <label style={{ fontSize: 11, color: "#64748b", display: "block", marginBottom: 3 }}>{lbl}</label>
                 <input type="number" value={inp[key]}
                   onChange={e => set(key, Number(e.target.value))}
-                  style={{ width: "100%", background: "white", border: "1px solid #e2e8f0",
-                    borderRadius: 6, padding: "7px 10px", fontSize: 13, fontWeight: 600 }} />
+                  style={{ width: "100%", background: "#141829", border: "1px solid #1e2540",
+                    borderRadius: 6, padding: "7px 10px", fontSize: 13, fontWeight: 600, color: "#e2e8f0" }} />
               </div>
             ))}
           </div>
 
-          <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 16, fontStyle: "italic",
-            textAlign: "center", paddingTop: 12, borderTop: "1px solid #e2e8f0" }}>
+          <p style={{ fontSize: 11, color: "#64748b", marginTop: 16, fontStyle: "italic",
+            textAlign: "center", paddingTop: 12, borderTop: "1px solid #1e2540" }}>
             All inputs editable. Save any configuration to a slot above.
           </p>
         </div>
@@ -759,13 +759,13 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
         <div style={{ flex: 1, padding: 20, overflowY: "auto" }}>
 
           {/* Tab strip */}
-          <div style={{ display: "flex", gap: 0, marginBottom: 16, borderBottom: "2px solid #e2e8f0" }}>
+          <div style={{ display: "flex", gap: 0, marginBottom: 16, borderBottom: "2px solid #1e2540" }}>
             {[["analysis", "Scenario Analysis"], ["methods", "Compare Methods"]].map(([key, label]) => (
               <button key={key} onClick={() => setActiveTab(key)} style={{
                 padding: "8px 20px", fontSize: 13, fontWeight: 600, cursor: "pointer",
-                border: "none", borderBottom: activeTab === key ? "2px solid #3b82f6" : "2px solid transparent",
+                border: "none", borderBottom: activeTab === key ? "2px solid #3b6cf6" : "2px solid transparent",
                 marginBottom: -2, background: "transparent",
-                color: activeTab === key ? "#1d4ed8" : "#94a3b8",
+                color: activeTab === key ? "#7da4fa" : "#4b5574",
               }}>{label}</button>
             ))}
           </div>
@@ -788,10 +788,10 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
                     Age {inp.retirementAge} &rarr; {inp.ssClaimAge}
                   </div>
                 </div>
-                <div style={{ fontSize: 12, color: "#94a3b8", maxWidth: 340, lineHeight: 1.5 }}>
-                  During this window you draw <strong style={{ color: "#f8fafc" }}>{fmtDollars(inp.spending)}/yr</strong> entirely
+                <div style={{ fontSize: 12, color: "#64748b", maxWidth: 340, lineHeight: 1.5 }}>
+                  During this window you draw <strong style={{ color: "#c8cdd8" }}>{fmtDollars(inp.spending)}/yr</strong> entirely
                   from the portfolio. After age {inp.ssClaimAge}, government income offsets{" "}
-                  <strong style={{ color: "#f8fafc" }}>{fmtDollars(totalBenefits)}/yr</strong>.
+                  <strong style={{ color: "#c8cdd8" }}>{fmtDollars(totalBenefits)}/yr</strong>.
                 </div>
               </div>
             </MetricCard>
@@ -799,11 +799,11 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
 
           {/* Fixed Real baseline header */}
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em",
-            textTransform: "uppercase", color: "#64748b", marginBottom: 8,
-            background: "#f1f5f9", borderRadius: 6, padding: "6px 12px",
+            textTransform: "uppercase", color: "#7a8499", marginBottom: 8,
+            background: "#0c0f1a", borderRadius: 6, padding: "6px 12px",
             display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <span>Fixed Real Baseline &mdash; constant inflation-adjusted spending</span>
-            <span style={{ fontWeight: 500, letterSpacing: 0, textTransform: "none", fontSize: 10, color: "#94a3b8" }}>
+            <span style={{ fontWeight: 500, letterSpacing: 0, textTransform: "none", fontSize: 10, color: "#64748b" }}>
               Use the chart below to explore other strategies
             </span>
           </div>
@@ -824,31 +824,31 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
             />
             <MetricCard label="Status">
               <div style={{ marginTop: 4, marginBottom: 6 }}><Badge s={status} size={14} /></div>
-              <div style={{ fontSize: 11, color: "#475569" }}>{STATUS[status].text}</div>
+              <div style={{ fontSize: 11, color: "#8892a8" }}>{STATUS[status].text}</div>
             </MetricCard>
           </div>
 
           {/* Government benefits offset */}
-          <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0",
+          <div style={{ background: "#0f1220", border: "1px solid #1e2540",
             borderRadius: 8, padding: "14px 16px", marginBottom: 16 }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
-              textTransform: "uppercase", color: "#94a3b8", marginBottom: 10 }}>
+              textTransform: "uppercase", color: "#7a8499", marginBottom: 10 }}>
               Government Income (from age {inp.ssClaimAge})
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
               <div style={{ fontSize: 13 }}>
                 {[["Social Security", inp.ssBenefit], ["CPP / Pension", inp.cpp], ["OAS / Other", inp.oas]].map(([lbl, val]) => (
                   <div key={lbl} style={{ display: "flex", justifyContent: "space-between",
-                    padding: "4px 0", color: "#475569", borderBottom: "1px solid #f1f5f9" }}>
+                    padding: "4px 0", color: "#8892a8", borderBottom: "1px solid #1a1f35" }}>
                     <span>{lbl}</span><span>${val.toLocaleString()}/yr</span>
                   </div>
                 ))}
                 <div style={{ display: "flex", justifyContent: "space-between",
-                  paddingTop: 8, marginTop: 4, fontWeight: 700, color: "#1e293b" }}>
+                  paddingTop: 8, marginTop: 4, fontWeight: 700, color: "#e2e8f0" }}>
                   <span>Total offset</span><span>${totalBenefits.toLocaleString()}/yr</span>
                 </div>
               </div>
-              <div style={{ background: "#0f172a", borderRadius: 8, padding: 14 }}>
+              <div style={{ background: "linear-gradient(135deg, #111827, #1a1f35)", borderRadius: 8, padding: 14 }}>
                 <div style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 3 }}>
                   After Benefits Begin &middot; age {inp.ssClaimAge}+
                 </div>
@@ -865,15 +865,15 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
           </div>
 
           {/* Portfolio projection chart */}
-          <div style={{ background: "white", border: "1px solid #e2e8f0",
+          <div style={{ background: "#141829", border: "1px solid #1e2540",
             borderRadius: 8, padding: 16, marginBottom: 16 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
               <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
-                textTransform: "uppercase", color: "#94a3b8" }}>
+                textTransform: "uppercase", color: "#7a8499" }}>
                 Portfolio Projection &mdash; Age {inp.retirementAge} to {inp.lifeExpectancy}
               </div>
               <button onClick={() => setActiveTab("methods")} style={{ background: "none", border: "none",
-                color: "#3b82f6", fontWeight: 600, fontSize: 11, cursor: "pointer", whiteSpace: "nowrap" }}>
+                color: "#3b6cf6", fontWeight: 600, fontSize: 11, cursor: "pointer", whiteSpace: "nowrap" }}>
                 Compare all 8 strategies &rarr;
               </button>
             </div>
@@ -883,10 +883,10 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
               {METHODS.map(m => (
                 <button key={m.id} onClick={() => setChartMethod(m.id)} style={{
                   padding: "4px 10px", fontSize: 11, fontWeight: chartMethod === m.id ? 700 : 500,
-                  border: chartMethod === m.id ? "1px solid #3b82f6" : "1px solid #e2e8f0",
+                  border: chartMethod === m.id ? "1px solid #3b6cf6" : "1px solid #1e2540",
                   borderRadius: 20, cursor: "pointer",
-                  background: chartMethod === m.id ? "#eff6ff" : "white",
-                  color: chartMethod === m.id ? "#1d4ed8" : "#64748b",
+                  background: chartMethod === m.id ? "rgba(59, 108, 246, 0.1)" : "#0f1220",
+                  color: chartMethod === m.id ? "#7da4fa" : "#4b5574",
                 }}>
                   {m.name.replace(" (Base Case)", "").replace(" (Guyton-Klinger)", "").replace(" (10yr Avg)", "")}
                 </button>
@@ -895,33 +895,33 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
 
             <ResponsiveContainer width="100%" height={190}>
               <LineChart data={chartData} margin={{ top: 4, right: 12, left: 4, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="year" type="number" tick={{ fontSize: 10, fill: "#94a3b8" }}
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e2540" />
+                <XAxis dataKey="year" type="number" tick={{ fontSize: 10, fill: "#4b5574" }}
                   tickFormatter={v => Number.isInteger(v) ? `Yr ${v}` : ""}
                   domain={[0, horizon]}
                   ticks={Array.from({ length: Math.floor(horizon / Math.max(1, Math.ceil(horizon / 8))) + 1 }, (_, i) => i * Math.max(1, Math.ceil(horizon / 8))).filter(v => v <= horizon)} />
-                <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }}
+                <YAxis tick={{ fontSize: 10, fill: "#4b5574" }}
                   tickFormatter={v => `$${(v / 1_000_000).toFixed(1)}M`} width={48} />
                 <Tooltip content={<ChartTooltip />} />
-                <ReferenceLine y={0} stroke="#ef4444" strokeDasharray="4 3" strokeOpacity={0.4} />
-                <ReferenceLine x={bridge} stroke="#94a3b8" strokeDasharray="4 3"
-                  label={{ value: "SS kicks in", position: "insideTopRight", fontSize: 9, fill: "#94a3b8" }} />
+                <ReferenceLine y={0} stroke="#f87171" strokeDasharray="4 3" strokeOpacity={0.4} />
+                <ReferenceLine x={bridge} stroke="#4b5574" strokeDasharray="4 3"
+                  label={{ value: "SS kicks in", position: "insideTopRight", fontSize: 9, fill: "#4b5574" }} />
                 <Line type="linear" dataKey="optimistic" name={`Optimistic (${returnOpt}% real)`}
-                  stroke="#22c55e" strokeWidth={2.5} dot={false} connectNulls={false} />
+                  stroke="#4ade80" strokeWidth={2.5} dot={false} connectNulls={false} />
                 <Line type="linear" dataKey="base" name={`Expected (${returnBase}% real)`}
-                  stroke="#3b82f6" strokeWidth={2.5} dot={false} connectNulls={false} />
+                  stroke="#3b6cf6" strokeWidth={2.5} dot={false} connectNulls={false} />
                 <Line type="linear" dataKey="pessimistic" name={`Pessimistic (${returnPess}% real)`}
-                  stroke="#ef4444" strokeWidth={2.5} dot={false} connectNulls={false} />
+                  stroke="#f87171" strokeWidth={2.5} dot={false} connectNulls={false} />
                 <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} />
               </LineChart>
             </ResponsiveContainer>
-            <p style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic", marginTop: 6 }}>
+            <p style={{ fontSize: 10, color: "#64748b", fontStyle: "italic", marginTop: 6 }}>
               <strong style={{ color: "#64748b" }}>{selectedMethod.name}:</strong>{" "}
               {selectedMethod.desc.split(".")[0]}.{" "}
               Returns: {inp.equityPct}% equities ({(CMA.equity*100).toFixed(1)}% real)
               + {100-inp.equityPct}% bonds ({(CMA.bond*100).toFixed(1)}% real) = {returnBase}% expected &plusmn;{(CMA.spread*100).toFixed(0)}%.
             </p>
-            <div style={{ background: "#f1f5f9", borderRadius: 4, padding: "6px 10px", marginTop: 8,
+            <div style={{ background: "#0c0f1a", borderRadius: 4, padding: "6px 10px", marginTop: 8,
               fontSize: 10, color: "#64748b", lineHeight: 1.5 }}>
               This is a <strong>deterministic</strong> projection &mdash; it assumes the same return every year.
               Real markets have good years and bad years, and a bad sequence early in retirement is
@@ -932,8 +932,8 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
 
           {/* Guardrails callout */}
           {showGuardrails && (
-            <div style={{ border: "2px solid #f59e0b", borderRadius: 8, padding: "12px 14px",
-              background: "#fffbeb", marginBottom: 16, fontSize: 12, color: "#78350f", lineHeight: 1.6 }}>
+            <div style={{ border: "2px solid rgba(251, 191, 36, 0.3)", borderRadius: 8, padding: "12px 14px",
+              background: "rgba(251, 191, 36, 0.06)", marginBottom: 16, fontSize: 12, color: "#d97706", lineHeight: 1.6 }}>
               <strong>{"\uD83D\uDCA1"} Guardrails Approach:</strong> You're above the fixed safe rate, but potentially
               within range for a Guardrails strategy &mdash; commit to ~10% spending cuts if your portfolio
               drops 20%+ in exchange for a higher starting withdrawal rate (~{fmtPct(safeRate + 0.65)}).
@@ -943,23 +943,23 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
           )}
 
           {/* AI Analysis */}
-          <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "14px 16px" }}>
+          <div style={{ background: "#0f1220", border: "1px solid #1e2540", borderRadius: 8, padding: "14px 16px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
               <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
-                textTransform: "uppercase", color: "#94a3b8" }}>AI Analysis &mdash; Power User</div>
-              <span style={{ fontSize: 10, background: "#e2e8f0", color: "#64748b",
+                textTransform: "uppercase", color: "#7a8499" }}>AI Analysis &mdash; Power User</div>
+              <span style={{ fontSize: 10, background: "#1e2540", color: "#64748b",
                 padding: "2px 8px", borderRadius: 10, fontWeight: 600 }}>Optional</span>
             </div>
-            <label style={{ fontSize: 12, color: "#1e293b", fontWeight: 600, display: "block", marginBottom: 5 }}>
+            <label style={{ fontSize: 12, color: "#e2e8f0", fontWeight: 600, display: "block", marginBottom: 5 }}>
               Your Anthropic API Key
             </label>
             <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
               <input type="password" value={apiKey} placeholder="sk-ant-..."
                 onChange={e => { setApiKey(e.target.value); setApiError(""); }}
-                style={{ flex: 1, background: "white", border: "1px solid #e2e8f0",
-                  borderRadius: 6, padding: "8px 10px", fontSize: 13 }} />
+                style={{ flex: 1, background: "#141829", border: "1px solid #1e2540",
+                  borderRadius: 6, padding: "8px 10px", fontSize: 13, color: "#e2e8f0" }} />
               <button onClick={handleAnalyze} disabled={analyzing} style={{
-                background: analyzing ? "#475569" : "#0f172a", color: "white",
+                background: analyzing ? "#475569" : "#3b6cf6", color: "white",
                 border: "none", borderRadius: 6, padding: "8px 16px",
                 fontSize: 13, fontWeight: 600,
                 cursor: analyzing ? "not-allowed" : "pointer", whiteSpace: "nowrap",
@@ -967,13 +967,13 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
                 {analyzing ? "Analyzing\u2026" : "Analyze"}
               </button>
             </div>
-            <p style={{ fontSize: 11, color: "#94a3b8", marginBottom: 10, lineHeight: 1.6 }}>
+            <p style={{ fontSize: 11, color: "#64748b", marginBottom: 10, lineHeight: 1.6 }}>
               Requires an Anthropic API key &mdash; separate from a Claude.ai subscription.{" "}
-              <a href="https://console.anthropic.com" target="_blank" rel="noreferrer" style={{ color: "#3b82f6" }}>
+              <a href="https://console.anthropic.com" target="_blank" rel="noreferrer" style={{ color: "#3b6cf6" }}>
                 Get one at console.anthropic.com &rarr;
               </a>{" "}
               Keys start with{" "}
-              <code style={{ background: "#e2e8f0", padding: "1px 4px", borderRadius: 3, fontSize: 10 }}>sk-ant-</code>.
+              <code style={{ background: "#1e2540", padding: "1px 4px", borderRadius: 3, fontSize: 10 }}>sk-ant-</code>.
               {" "}Not stored anywhere.
             </p>
             {apiError && (
@@ -982,11 +982,11 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
                 {apiError}
               </div>
             )}
-            <div style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: 6,
-              padding: 12, fontSize: 13, color: "#475569", lineHeight: 1.7, minHeight: 88 }}>
+            <div style={{ background: "#141829", border: "1px solid #1e2540", borderRadius: 6,
+              padding: 12, fontSize: 13, color: "#8892a8", lineHeight: 1.7, minHeight: 88 }}>
               {analysis
                 ? <span style={{ whiteSpace: "pre-wrap" }}>{analysis}</span>
-                : <span style={{ color: "#cbd5e1", fontStyle: "italic" }}>
+                : <span style={{ color: "#3d4563", fontStyle: "italic" }}>
                     Analysis will appear here. The calculator above works fully without an API key.
                   </span>
               }
@@ -1002,25 +1002,25 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
             <div style={{ marginBottom: 16 }}>
               {/* Header row: title + actions */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#e2e8f0" }}>
                   Withdrawal Strategy Comparison
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   {/* Estimated / Simulated toggle — only shown after MC has run */}
                   {mcResults && (
-                    <div style={{ display: "flex", border: "1px solid #e2e8f0", borderRadius: 6, overflow: "hidden" }}>
+                    <div style={{ display: "flex", border: "1px solid #1e2540", borderRadius: 6, overflow: "hidden" }}>
                       {[["est", "Estimated"], ["mc", "Simulated"]].map(([key, label]) => (
                         <button key={key} onClick={() => setMcView(key)} style={{
                           padding: "5px 12px", fontSize: 11, fontWeight: 600, cursor: "pointer",
                           border: "none",
-                          background: mcView === key ? "#0f172a" : "white",
-                          color: mcView === key ? "white" : "#64748b",
+                          background: mcView === key ? "#3b6cf6" : "#0f1220",
+                          color: mcView === key ? "white" : "#4b5574",
                         }}>{label}</button>
                       ))}
                     </div>
                   )}
                   <button onClick={handleRunMC} disabled={mcRunning} style={{
-                    background: mcRunning ? "#475569" : "#0f172a", color: "white",
+                    background: mcRunning ? "#475569" : "#3b6cf6", color: "white",
                     border: "none", borderRadius: 6, padding: "8px 18px",
                     fontSize: 12, fontWeight: 600,
                     cursor: mcRunning ? "not-allowed" : "pointer",
@@ -1037,21 +1037,21 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
                   : " Rates estimated via premium extrapolation from Morningstar\u2019s 30-year / 40% equity data."}
               </p>
               {mcStale && mcView === "mc" && (
-                <div style={{ background: "#fef3c7", border: "1px solid #fcd34d", borderRadius: 6,
-                  padding: "8px 12px", fontSize: 11, color: "#92400e", lineHeight: 1.5, marginBottom: 8 }}>
+                <div style={{ background: "rgba(251, 191, 36, 0.08)", border: "1px solid rgba(251, 191, 36, 0.2)", borderRadius: 6,
+                  padding: "8px 12px", fontSize: 11, color: "#d97706", lineHeight: 1.5, marginBottom: 8 }}>
                   Inputs have changed since last simulation ({mcInputs.equityPct}% equity, {mcInputs.horizon}yr).
                   Showing stale MC results &mdash; click <strong>Re-run Monte Carlo</strong> to update.
                 </div>
               )}
               {(!mcResults || mcView === "est") && (
-                <div style={{ background: "#fef3c7", border: "1px solid #fcd34d", borderRadius: 6,
-                  padding: "8px 12px", fontSize: 11, color: "#92400e", lineHeight: 1.5 }}>
+                <div style={{ background: "rgba(251, 191, 36, 0.08)", border: "1px solid rgba(251, 191, 36, 0.2)", borderRadius: 6,
+                  padding: "8px 12px", fontSize: 11, color: "#d97706", lineHeight: 1.5 }}>
                   Rates for non-base-case methods are estimated via premium extrapolation from Morningstar's
                   30-year / 40% equity data.{!mcResults && " Run Monte Carlo for simulation-based rates specific to your inputs."}
                 </div>
               )}
               {mcResults && !mcStale && mcView === "mc" && (
-                <div style={{ background: "#ecfdf5", border: "1px solid #6ee7b7", borderRadius: 6,
+                <div style={{ background: "rgba(34, 197, 94, 0.06)", border: "1px solid #6ee7b7", borderRadius: 6,
                   padding: "8px 12px", fontSize: 11, color: "#065f46", lineHeight: 1.5 }}>
                   Monte Carlo results: {MC.trials} trials per rate test, {MC.searchIter}-step binary search,
                   seeded PRNG (reproducible). Returns: equity {(CMA.equity*100).toFixed(1)}% &plusmn; {(MC.eqVol*100).toFixed(0)}% vol,
@@ -1075,7 +1075,7 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
                 valueColor="#60a5fa"
               />
               <MetricCard label="Methods in Range">
-                <div style={{ fontSize: 22, fontWeight: 800, color: "#22c55e", lineHeight: 1, marginBottom: 4 }}>
+                <div style={{ fontSize: 22, fontWeight: 800, color: "#4ade80", lineHeight: 1, marginBottom: 4 }}>
                   {METHODS.filter(m => {
                     if (m.id === "rmd") return (inp.portfolio / horizon) >= inp.spending;
                     if (m.id === "constant") return (getExpectedReturn(inp.equityPct) * inp.portfolio) >= inp.spending;
@@ -1083,18 +1083,18 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
                     return r >= withdrawalRate;
                   }).length} of {METHODS.length}
                 </div>
-                <div style={{ fontSize: 11, color: "#475569" }}>
+                <div style={{ fontSize: 11, color: "#8892a8" }}>
                   strategies can support your spending
                 </div>
               </MetricCard>
             </div>
 
             {/* Methods table */}
-            <div style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: 8, overflow: "hidden" }}>
+            <div style={{ background: "#141829", border: "1px solid #1e2540", borderRadius: 8, overflow: "hidden" }}>
               {/* Table header */}
               <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr",
-                gap: 0, padding: "10px 14px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0",
-                fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "#94a3b8" }}>
+                gap: 0, padding: "10px 14px", background: "#0f1220", borderBottom: "1px solid #1e2540",
+                fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "#7a8499" }}>
                 <div>Strategy</div>
                 <div style={{ textAlign: "right" }}>{mcResults && !mcStale && mcView === "mc" ? "MC Starting Rate" : "Est. Starting Rate"}<br/><span style={{ fontWeight: 400, fontSize: 9, letterSpacing: 0, textTransform: "none" }}>(year-1 as % of portfolio)</span></div>
                 <div style={{ textAlign: "right" }}>Year-1 Withdrawal</div>
@@ -1129,25 +1129,25 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
                   <div key={m.id} style={{
                     display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr",
                     gap: 0, padding: "12px 14px", alignItems: "start",
-                    borderBottom: i < METHODS.length - 1 ? "1px solid #f1f5f9" : "none",
+                    borderBottom: i < METHODS.length - 1 ? "1px solid #1a1f35" : "none",
                     background: canSupport ? "rgba(34,197,94,0.04)" : "transparent",
                   }}>
                     {/* Name + description + info tooltip */}
                     <div style={{ position: "relative" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{m.name}</span>
-                        {isBase && <span style={{ fontSize: 9, background: "#e2e8f0", color: "#64748b",
+                        <span style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>{m.name}</span>
+                        {isBase && <span style={{ fontSize: 9, background: "#1e2540", color: "#64748b",
                           padding: "1px 6px", borderRadius: 8, fontWeight: 600 }}>BASE</span>}
                         <span
                           onMouseEnter={() => setHoveredInfo(m.id)}
                           onMouseLeave={() => setHoveredInfo(null)}
                           style={{ display: "inline-flex", alignItems: "center", justifyContent: "center",
                             width: 16, height: 16, borderRadius: "50%", fontSize: 10, fontWeight: 700,
-                            background: hoveredInfo === m.id ? "#3b82f6" : "#e2e8f0",
-                            color: hoveredInfo === m.id ? "white" : "#94a3b8",
+                            background: hoveredInfo === m.id ? "#3b6cf6" : "#0f1220",
+                            color: hoveredInfo === m.id ? "white" : "#4b5574",
                             cursor: "help", flexShrink: 0, lineHeight: 1 }}>i</span>
                       </div>
-                      <div style={{ fontSize: 11, color: "#94a3b8", lineHeight: 1.5 }}>{m.desc}</div>
+                      <div style={{ fontSize: 11, color: "#64748b", lineHeight: 1.5 }}>{m.desc}</div>
                       {/* Tooltip — flip above for bottom half of list */}
                       {hoveredInfo === m.id && (
                         <div
@@ -1158,7 +1158,7 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
                             ...(i >= 4 ? { bottom: "100%", marginBottom: 4 } : { top: "100%", marginTop: 4 }),
                             left: 0, zIndex: 50,
                             width: 380, padding: "12px 14px",
-                            background: "#0f172a", color: "#e2e8f0", borderRadius: 8,
+                            background: "linear-gradient(135deg, #111827, #1a1f35)", color: "#e2e8f0", borderRadius: 8,
                             fontSize: 12, lineHeight: 1.6, boxShadow: "0 8px 24px rgba(0,0,0,0.25)",
                           }}>
                           {m.longDesc}
@@ -1170,8 +1170,8 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
                     <div style={{ textAlign: "right" }}>
                       <div style={{ fontSize: 15, fontWeight: 800,
                         color: isFormulaDriven
-                          ? (canSupport ? "#22c55e" : yr1 >= inp.spending * 0.8 ? "#f59e0b" : "#ef4444")
-                          : canSupport ? "#22c55e" : withdrawalRate <= mRate + 0.5 ? "#f59e0b" : "#ef4444" }}>
+                          ? (canSupport ? "#4ade80" : yr1 >= inp.spending * 0.8 ? "#fbbf24" : "#f87171")
+                          : canSupport ? "#4ade80" : withdrawalRate <= mRate + 0.5 ? "#fbbf24" : "#f87171" }}>
                         {isFormulaDriven ? "N/A" : `${mRate.toFixed(1)}%`}
                       </div>
                       {isFormulaDriven
@@ -1181,29 +1181,29 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
                           </div>
                         : useMC
                           ? <div style={{ fontSize: 10, color: "#6ee7b7" }}>MC {(mcResults[m.id].successRate * 100).toFixed(0)}% success</div>
-                          : m.premium > 0 && <div style={{ fontSize: 10, color: "#94a3b8" }}>+{m.premium.toFixed(1)}% premium</div>
+                          : m.premium > 0 && <div style={{ fontSize: 10, color: "#64748b" }}>+{m.premium.toFixed(1)}% premium</div>
                       }
                     </div>
 
                     {/* Year-1 withdrawal */}
                     <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{fmtDollars(yr1)}</div>
-                      <div style={{ fontSize: 10, color: "#94a3b8" }}>{yr1Note || "/yr"}</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>{fmtDollars(yr1)}</div>
+                      <div style={{ fontSize: 10, color: "#64748b" }}>{yr1Note || "/yr"}</div>
                     </div>
 
                     {/* Volatility */}
                     <div style={{ textAlign: "right" }}>
                       <div style={{ fontSize: 13, fontWeight: 600,
-                        color: m.std === 0 ? "#22c55e" : m.std < 10 ? "#3b82f6" : m.std < 30 ? "#f59e0b" : "#ef4444" }}>
+                        color: m.std === 0 ? "#4ade80" : m.std < 10 ? "#3b6cf6" : m.std < 30 ? "#fbbf24" : "#f87171" }}>
                         {m.std === 0 ? "None" : m.std.toFixed(0) + "%"}
                       </div>
-                      <div style={{ fontSize: 10, color: "#94a3b8" }}>cash flow STD</div>
+                      <div style={{ fontSize: 10, color: "#64748b" }}>cash flow STD</div>
                     </div>
 
                     {/* Spend/End */}
                     <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>{m.spendEnd}</div>
-                      <div style={{ fontSize: 10, color: "#94a3b8" }}>spend/bequest</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#8892a8" }}>{m.spendEnd}</div>
+                      <div style={{ fontSize: 10, color: "#64748b" }}>spend/bequest</div>
                     </div>
                   </div>
                 );
@@ -1211,16 +1211,16 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
             </div>
 
             {/* Excluded method note */}
-            <div style={{ marginTop: 12, padding: "10px 14px", background: "#f8fafc",
-              border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 11, color: "#94a3b8", lineHeight: 1.6 }}>
+            <div style={{ marginTop: 12, padding: "10px 14px", background: "#0f1220",
+              border: "1px solid #1e2540", borderRadius: 6, fontSize: 11, color: "#64748b", lineHeight: 1.6 }}>
               <strong style={{ color: "#64748b" }}>Excluded: Probability-Based Guardrails.</strong>{" "}
               This method requires re-running a simulation every year of every trial to recalculate success
               probability. The output isn't meaningfully different from Guardrails (Guyton-Klinger) for most users.
             </div>
 
             {/* Interpretation guide */}
-            <div style={{ marginTop: 12, padding: "12px 14px", background: "#eff6ff",
-              border: "1px solid #bfdbfe", borderRadius: 6, fontSize: 12, color: "#1e40af", lineHeight: 1.6 }}>
+            <div style={{ marginTop: 12, padding: "12px 14px", background: "rgba(59, 108, 246, 0.06)",
+              border: "1px solid rgba(59, 108, 246, 0.2)", borderRadius: 6, fontSize: 12, color: "#5a7ec2", lineHeight: 1.6 }}>
               <strong>How to read this:</strong> Your withdrawal rate is {fmtPct(withdrawalRate)}.
               Any strategy with a safe rate {"\u2265"} {fmtPct(withdrawalRate)} (shown in green) could
               theoretically support your spending at 90% success.
@@ -1231,8 +1231,8 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
 
             {/* MC methodology note */}
             {mcResults && !mcStale && mcView === "mc" && (
-              <div style={{ marginTop: 12, padding: "12px 14px", background: "#f8fafc",
-                border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 11, color: "#64748b", lineHeight: 1.6 }}>
+              <div style={{ marginTop: 12, padding: "12px 14px", background: "#0f1220",
+                border: "1px solid #1e2540", borderRadius: 6, fontSize: 11, color: "#64748b", lineHeight: 1.6 }}>
                 <strong>Monte Carlo methodology:</strong> Each strategy's safe rate is found via binary search
                 over {MC.trials} trials per rate test. Each trial generates independent annual returns from a normal
                 distribution (equity: {(CMA.equity*100).toFixed(1)}% mean / {(MC.eqVol*100)}% vol; bonds: {(CMA.bond*100).toFixed(1)}% mean / {(MC.bondVol*100)}% vol).
