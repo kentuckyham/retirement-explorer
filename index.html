@@ -409,6 +409,68 @@
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
+    // SIMPLE MARKDOWN → REACT RENDERER
+    // ─────────────────────────────────────────────────────────────────────────────
+    function renderMarkdown(text) {
+      if (!text) return null;
+      // Split into blocks by double newlines
+      const blocks = text.split(/\n{2,}/);
+      return blocks.map((block, bi) => {
+        const trimmed = block.trim();
+        if (!trimmed) return null;
+        // Headings
+        if (/^###\s/.test(trimmed)) {
+          return React.createElement("h4", { key: bi, style: { fontSize: 13, fontWeight: 700, color: "#e2e8f0", margin: "12px 0 4px" } },
+            renderInline(trimmed.replace(/^###\s+/, "")));
+        }
+        if (/^##\s/.test(trimmed)) {
+          return React.createElement("h3", { key: bi, style: { fontSize: 14, fontWeight: 700, color: "#e2e8f0", margin: "14px 0 4px" } },
+            renderInline(trimmed.replace(/^##\s+/, "")));
+        }
+        if (/^#\s/.test(trimmed)) {
+          return React.createElement("h2", { key: bi, style: { fontSize: 15, fontWeight: 700, color: "#e2e8f0", margin: "14px 0 6px" } },
+            renderInline(trimmed.replace(/^#\s+/, "")));
+        }
+        // Bullet list
+        const lines = trimmed.split("\n");
+        if (lines.every(l => /^[-*]\s/.test(l.trim()))) {
+          return React.createElement("ul", { key: bi, style: { margin: "6px 0", paddingLeft: 18 } },
+            lines.map((l, li) => React.createElement("li", { key: li, style: { marginBottom: 3 } },
+              renderInline(l.trim().replace(/^[-*]\s+/, "")))));
+        }
+        // Numbered list
+        if (lines.every(l => /^\d+[.)]\s/.test(l.trim()))) {
+          return React.createElement("ol", { key: bi, style: { margin: "6px 0", paddingLeft: 18 } },
+            lines.map((l, li) => React.createElement("li", { key: li, style: { marginBottom: 3 } },
+              renderInline(l.trim().replace(/^\d+[.)]\s+/, "")))));
+        }
+        // Regular paragraph
+        return React.createElement("p", { key: bi, style: { margin: "6px 0" } }, renderInline(trimmed));
+      });
+    }
+
+    function renderInline(text) {
+      // Bold and italic inline formatting
+      const parts = [];
+      const regex = /(\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|\*(.+?)\*)/g;
+      let lastIndex = 0;
+      let match;
+      while ((match = regex.exec(text)) !== null) {
+        if (match.index > lastIndex) parts.push(text.slice(lastIndex, match.index));
+        if (match[2]) {
+          parts.push(React.createElement("strong", { key: match.index, style: { fontWeight: 700, fontStyle: "italic", color: "#e2e8f0" } }, match[2]));
+        } else if (match[3]) {
+          parts.push(React.createElement("strong", { key: match.index, style: { fontWeight: 700, color: "#e2e8f0" } }, match[3]));
+        } else if (match[4]) {
+          parts.push(React.createElement("em", { key: match.index }, match[4]));
+        }
+        lastIndex = regex.lastIndex;
+      }
+      if (lastIndex < text.length) parts.push(text.slice(lastIndex));
+      return parts.length ? parts : text;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
     // SHARED SUB-COMPONENTS (module-level)
     // ─────────────────────────────────────────────────────────────────────────────
     function SectionLabel({ children, mt = 18 }) {
@@ -482,7 +544,12 @@
       const [editingVal, setEditingVal] = useState("");
       const [savedIdx, setSavedIdx]     = useState(null);
       const [activeTab, setActiveTab]   = useState("analysis");  // "analysis" | "methods"
-      const [apiKey, setApiKey]         = useState("");
+      const [apiKey, setApiKey]         = useState(() => {
+        try { return localStorage.getItem("re_apiKey") || ""; } catch { return ""; }
+      });
+      const [rememberKey, setRememberKey] = useState(() => {
+        try { return localStorage.getItem("re_rememberKey") === "true"; } catch { return false; }
+      });
       const [analysis, setAnalysis]     = useState("");
       const [analyzing, setAnalyzing]   = useState(false);
       const [apiError, setApiError]     = useState("");
@@ -526,6 +593,28 @@
         setEditingIdx(null);
       }
 
+      // ── API key persistence ──
+      function handleApiKeyChange(val) {
+        setApiKey(val);
+        setApiError("");
+        try {
+          if (rememberKey) localStorage.setItem("re_apiKey", val);
+        } catch {}
+      }
+
+      function handleRememberToggle(checked) {
+        setRememberKey(checked);
+        try {
+          if (checked) {
+            localStorage.setItem("re_rememberKey", "true");
+            localStorage.setItem("re_apiKey", apiKey);
+          } else {
+            localStorage.removeItem("re_rememberKey");
+            localStorage.removeItem("re_apiKey");
+          }
+        } catch {}
+      }
+
       // ── Input helpers ──
       function set(key, val) {
         setInp(prev => ({ ...prev, [key]: val }));
@@ -557,14 +646,9 @@
       const showGuardrails = status === "marginal" || status === "aggressive";
 
       // ── AI Analysis ──
-      async function handleAnalyze() {
-        if (!apiKey.trim()) { setApiError("Please enter your API key above."); return; }
-        setAnalyzing(true);
-        setAnalysis("");
-        setApiError("");
-
+      function buildAnalysisPrompt() {
         const scenarioName = activeSlot !== null ? scenarios[activeSlot].label : "Custom";
-        const prompt = `You are a retirement planning analyst grounding your analysis in Morningstar's State of Retirement Income 2025 research.
+        const baseContext = `You are a retirement planning analyst grounding your analysis in Morningstar's State of Retirement Income 2025 research.
 
 The user has the following retirement scenario (named "${scenarioName}"):
 - Portfolio: $${inp.portfolio.toLocaleString()}
@@ -583,7 +667,40 @@ Government income (starting at age ${inp.ssClaimAge}):
 - OAS/Other: $${inp.oas.toLocaleString()}/year
 - Total: $${totalBenefits.toLocaleString()}/year
 - Bridge period (no govt income): ${bridge} years
-- Net portfolio draw after benefits: $${netDraw.toLocaleString()}/year (${adjustedRate.toFixed(1)}%)
+- Net portfolio draw after benefits: $${netDraw.toLocaleString()}/year (${adjustedRate.toFixed(1)}%)`;
+
+        if (activeTab === "methods") {
+          // Build MC results summary if available
+          let mcSummary = "";
+          const useMC = mcResults && !mcStale && mcView === "mc";
+          if (useMC) {
+            mcSummary = "\n\nMonte Carlo simulation results (1,000 trials, 90% success threshold):";
+            for (const m of METHODS) {
+              const r = mcResults[m.id];
+              const isFormulaDriven = m.id === "rmd" || m.id === "constant";
+              mcSummary += `\n- ${m.name}: ${isFormulaDriven ? "N/A (cannot deplete)" : r.safeRate.toFixed(1) + "%"} safe rate, ${(r.successRate * 100).toFixed(0)}% success, income volatility ${m.std}%, spend/bequest ${m.spendEnd}`;
+            }
+          } else {
+            mcSummary = "\n\nMorningstar-estimated safe rates (premium over base case):";
+            for (const m of METHODS) {
+              const mRate = getMethodRate(m, inp.equityPct, horizon);
+              const isFormulaDriven = m.id === "rmd" || m.id === "constant";
+              mcSummary += `\n- ${m.name}: ${isFormulaDriven ? "N/A (cannot deplete)" : mRate.toFixed(1) + "%"} safe rate, income volatility ${m.std}%, spend/bequest ${m.spendEnd}`;
+            }
+          }
+
+          return baseContext + mcSummary + `
+
+The user is comparing all 8 withdrawal strategies. Write a 2\u20133 paragraph plain-language analysis. Cover:
+1. Which 2\u20133 strategies are the best fit for THIS specific scenario and why \u2014 consider the bridge period, government income offset, and spending needs
+2. The key trade-off the user faces (income stability vs. higher starting income) given their numbers
+3. One specific insight about how government benefits at age ${inp.ssClaimAge} interact with the variable-income strategies (Guardrails, Vanguard, etc.)
+
+Be direct and specific. Reference actual rates and dollar amounts. No boilerplate. Do not give investment advice or say "consult a financial advisor."`;
+        }
+
+        // Scenario Analysis tab prompt
+        return baseContext + `
 
 Write a 2\u20133 paragraph plain-language analysis of this scenario. Cover:
 1. Whether the withdrawal rate is safe for this specific time horizon (not just "30 years"), and what the bridge period risk looks like
@@ -591,30 +708,56 @@ Write a 2\u20133 paragraph plain-language analysis of this scenario. Cover:
 3. One practical insight or consideration most people overlook in this specific scenario
 
 Be direct and specific. No boilerplate. Reference actual numbers. Do not give investment advice or say "consult a financial advisor."`;
+      }
 
-        try {
-          const res = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: {
-              "x-api-key": apiKey.trim(),
-              "anthropic-version": "2023-06-01",
-              "anthropic-dangerous-direct-browser-access": "true",
-              "content-type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "claude-sonnet-4-6",
-              max_tokens: 650,
-              temperature: 0.3,
-              messages: [{ role: "user", content: prompt }],
-            }),
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error?.message ?? `HTTP ${res.status}`);
-          setAnalysis(data.content[0].text);
-        } catch (err) {
-          setApiError(`Error: ${err.message}`);
-        } finally {
-          setAnalyzing(false);
+      async function handleAnalyze() {
+        if (!apiKey.trim()) { setApiError("Please enter your API key above."); return; }
+        setAnalyzing(true);
+        setAnalysis("");
+        setApiError("");
+
+        const prompt = buildAnalysisPrompt();
+        const maxRetries = 2;
+
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+          try {
+            const res = await fetch("https://api.anthropic.com/v1/messages", {
+              method: "POST",
+              headers: {
+                "x-api-key": apiKey.trim(),
+                "anthropic-version": "2023-06-01",
+                "anthropic-dangerous-direct-browser-access": "true",
+                "content-type": "application/json",
+              },
+              body: JSON.stringify({
+                model: "claude-sonnet-4-6",
+                max_tokens: 650,
+                temperature: 0.3,
+                messages: [{ role: "user", content: prompt }],
+              }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+              const msg = data.error?.message ?? `HTTP ${res.status}`;
+              // Retry on overloaded/rate-limit errors
+              if ((res.status === 529 || res.status === 429 || /overloaded/i.test(msg)) && attempt < maxRetries) {
+                await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+                continue;
+              }
+              throw new Error(msg);
+            }
+            setAnalysis(data.content[0].text);
+            setAnalyzing(false);
+            return;
+          } catch (err) {
+            if (attempt < maxRetries && /overloaded|rate/i.test(err.message)) {
+              await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+              continue;
+            }
+            setApiError(`Error: ${err.message}`);
+            setAnalyzing(false);
+            return;
+          }
         }
       }
 
@@ -799,6 +942,73 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
                 textAlign: "center", paddingTop: 12, borderTop: "1px solid #1e2540" }}>
                 All inputs editable. Save any configuration to a slot above.
               </p>
+
+              {/* AI Analysis — tab-aware */}
+              <div style={{ background: "#141829", border: "1px solid #1e2540", borderRadius: 8,
+                padding: "14px 16px", marginTop: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.06em",
+                    textTransform: "uppercase", color: "#7a8499" }}>AI Analysis</div>
+                  <span style={{ fontSize: 10, background: "#1e2540", color: "#64748b",
+                    padding: "2px 8px", borderRadius: 10, fontWeight: 600 }}>Optional</span>
+                </div>
+                <div style={{ fontSize: 11, color: "#64748b", marginBottom: 10, lineHeight: 1.5 }}>
+                  {activeTab === "analysis"
+                    ? "Analyzes your scenario: withdrawal safety, bridge risk, and benefits offset."
+                    : "Compares all 8 strategies for your scenario and recommends the best fit."}
+                </div>
+                <label style={{ fontSize: 12, color: "#8892a8", fontWeight: 600, display: "block", marginBottom: 5 }}>
+                  Anthropic API Key
+                </label>
+                <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                  <input type="password" value={apiKey} placeholder="sk-ant-..."
+                    onChange={e => handleApiKeyChange(e.target.value)}
+                    style={{ flex: 1, background: "#0f1220", border: "1px solid #1e2540",
+                      borderRadius: 6, padding: "7px 10px", fontSize: 12, color: "#e2e8f0" }} />
+                  <button onClick={handleAnalyze} disabled={analyzing} style={{
+                    background: analyzing ? "#475569" : "linear-gradient(135deg, #3b6cf6, #5a4cf6)",
+                    color: "white", border: "none", borderRadius: 6, padding: "7px 14px",
+                    fontSize: 12, fontWeight: 600,
+                    cursor: analyzing ? "not-allowed" : "pointer", whiteSpace: "nowrap",
+                    boxShadow: analyzing ? "none" : "0 2px 8px rgba(59, 108, 246, 0.25)",
+                  }}>
+                    {analyzing ? "Analyzing\u2026" : activeTab === "analysis" ? "Analyze Scenario" : "Compare Methods"}
+                  </button>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
+                  marginBottom: 8 }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                    <input type="checkbox" checked={rememberKey}
+                      onChange={e => handleRememberToggle(e.target.checked)}
+                      style={{ accentColor: "#3b6cf6", cursor: "pointer" }} />
+                    <span style={{ fontSize: 11, color: "#8892a8" }}>Remember on this device</span>
+                  </label>
+                  <a href="https://console.anthropic.com" target="_blank" rel="noreferrer"
+                    style={{ fontSize: 10, color: "#3b6cf6" }}>
+                    Get a key &rarr;
+                  </a>
+                </div>
+                <p style={{ fontSize: 10, color: "#64748b", marginBottom: 8, lineHeight: 1.5 }}>
+                  {rememberKey
+                    ? "Key saved in your browser\u2019s local storage. Never sent anywhere except Anthropic\u2019s API."
+                    : "Key is not stored. You\u2019ll need to paste it each session."}
+                </p>
+                {apiError && (
+                  <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(248,113,113,0.3)",
+                    borderRadius: 6, padding: "6px 10px", fontSize: 11, color: "#f87171", marginBottom: 8 }}>
+                    {apiError}
+                  </div>
+                )}
+                {(analysis || analyzing) && (
+                  <div style={{ background: "#0f1220", border: "1px solid #1e2540", borderRadius: 6,
+                    padding: 10, fontSize: 12, color: "#8892a8", lineHeight: 1.7, maxHeight: 300, overflowY: "auto" }}>
+                    {analysis
+                      ? <div>{renderMarkdown(analysis)}</div>
+                      : <span style={{ color: "#3d4563", fontStyle: "italic" }}>Analyzing{"\u2026"}</span>
+                    }
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* RIGHT PANEL */}
@@ -987,57 +1197,6 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
                   essential expenses, as it does here once SS begins.
                 </div>
               )}
-
-              {/* AI Analysis */}
-              <div style={{ background: "#0f1220", border: "1px solid #1e2540", borderRadius: 8, padding: "14px 16px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
-                    textTransform: "uppercase", color: "#7a8499" }}>AI Analysis &mdash; Power User</div>
-                  <span style={{ fontSize: 10, background: "#1e2540", color: "#64748b",
-                    padding: "2px 8px", borderRadius: 10, fontWeight: 600 }}>Optional</span>
-                </div>
-                <label style={{ fontSize: 12, color: "#e2e8f0", fontWeight: 600, display: "block", marginBottom: 5 }}>
-                  Your Anthropic API Key
-                </label>
-                <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
-                  <input type="password" value={apiKey} placeholder="sk-ant-..."
-                    onChange={e => { setApiKey(e.target.value); setApiError(""); }}
-                    style={{ flex: 1, background: "#141829", border: "1px solid #1e2540",
-                      borderRadius: 6, padding: "8px 10px", fontSize: 13, color: "#e2e8f0" }} />
-                  <button onClick={handleAnalyze} disabled={analyzing} style={{
-                    background: analyzing ? "#475569" : "#3b6cf6", color: "white",
-                    border: "none", borderRadius: 6, padding: "8px 16px",
-                    fontSize: 13, fontWeight: 600,
-                    cursor: analyzing ? "not-allowed" : "pointer", whiteSpace: "nowrap",
-                  }}>
-                    {analyzing ? "Analyzing\u2026" : "Analyze"}
-                  </button>
-                </div>
-                <p style={{ fontSize: 11, color: "#64748b", marginBottom: 10, lineHeight: 1.6 }}>
-                  Requires an Anthropic API key &mdash; separate from a Claude.ai subscription.{" "}
-                  <a href="https://console.anthropic.com" target="_blank" rel="noreferrer" style={{ color: "#3b6cf6" }}>
-                    Get one at console.anthropic.com &rarr;
-                  </a>{" "}
-                  Keys start with{" "}
-                  <code style={{ background: "#1e2540", padding: "1px 4px", borderRadius: 3, fontSize: 10 }}>sk-ant-</code>.
-                  {" "}Not stored anywhere.
-                </p>
-                {apiError && (
-                  <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid #ef4444",
-                    borderRadius: 6, padding: "8px 12px", fontSize: 12, color: "#dc2626", marginBottom: 8 }}>
-                    {apiError}
-                  </div>
-                )}
-                <div style={{ background: "#141829", border: "1px solid #1e2540", borderRadius: 6,
-                  padding: 12, fontSize: 13, color: "#8892a8", lineHeight: 1.7, minHeight: 88 }}>
-                  {analysis
-                    ? <span style={{ whiteSpace: "pre-wrap" }}>{analysis}</span>
-                    : <span style={{ color: "#3d4563", fontStyle: "italic" }}>
-                        Analysis will appear here. The calculator above works fully without an API key.
-                      </span>
-                  }
-                </div>
-              </div>
 
               </>}
 
