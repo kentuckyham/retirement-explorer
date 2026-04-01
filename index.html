@@ -50,9 +50,9 @@
     const INITIAL_SCENARIOS = [
       {
         label: "Scenario 1",
-        portfolio:      4_800_000,
-        spending:         215_000,
-        retirementAge:         49,
+        portfolio:      1_000_000,
+        spending:         100_000,
+        retirementAge:         55,
         equityPct:             74,
         lifeExpectancy:        92,
         ssClaimAge:            70,
@@ -62,9 +62,9 @@
       },
       {
         label: "Scenario 2",
-        portfolio:      5_800_000,
-        spending:         215_000,
-        retirementAge:         51,
+        portfolio:      2_000_000,
+        spending:         150_000,
+        retirementAge:         53,
         equityPct:             55,
         lifeExpectancy:        92,
         ssClaimAge:            70,
@@ -74,9 +74,9 @@
       },
       {
         label: "Scenario 3",
-        portfolio:      5_000_000,
-        spending:         175_000,
-        retirementAge:         49,
+        portfolio:      4_000_000,
+        spending:         200_000,
+        retirementAge:         55,
         equityPct:             55,
         lifeExpectancy:        92,
         ssClaimAge:            70,
@@ -883,7 +883,7 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
 
               {/* Sliders */}
               <SectionLabel>Portfolio &amp; Spending</SectionLabel>
-              <Slider label="Portfolio Size"    value={inp.portfolio}      onChange={v => set("portfolio", v)}      min={1_000_000} max={10_000_000} step={25_000}  fmt={fmtDollars} />
+              <Slider label="Portfolio Size"    value={inp.portfolio}      onChange={v => set("portfolio", v)}      min={500_000} max={10_000_000} step={25_000}  fmt={fmtDollars} />
               <Slider label="Annual Spending"   value={inp.spending}       onChange={v => set("spending", v)}       min={50_000}    max={500_000}    step={5_000}   fmt={v => `$${(v/1000).toFixed(0)}K`} />
               <Slider label="Retirement Age"    value={inp.retirementAge}  onChange={v => set("retirementAge", v)}  min={45}        max={70}         step={1}       fmt={v => v} />
               <Slider label="Equity / Bond Split" value={inp.equityPct}      onChange={v => set("equityPct", v)}      min={0}         max={100}        step={1}       fmt={v => `${v}% / ${100-v}%`} />

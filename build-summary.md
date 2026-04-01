@@ -11,7 +11,7 @@ I built the entire thing in conversation with Claude — no boilerplate generato
 
 ## The stack
 
-Deliberately minimal. The whole app is a single HTML file (~1,300 lines) with no build step:
+Deliberately minimal. The whole app is a single HTML file (~1,400 lines) with no build step:
 
 - React 18 via CDN
 - Recharts for portfolio projection charts
@@ -81,9 +81,22 @@ The final round was about making the tool actually pleasant to use:
 - **Pre-MC consistency** — formula-driven methods show "N/A" even before running Monte Carlo, with color coding based on whether their Year-1 withdrawal meets your spending target
 
 
+## Phase 5: Dark theme and public deployment
+
+Once the functionality was solid, I wanted to share it. That meant two things: making it look professional enough for strangers to take seriously, and actually putting it on the internet.
+
+**Dark theme overhaul.** The original light gray/white design was functional but generic. I had Claude generate a static HTML mockup first — no React, just the proposed color palette and layout — so I could evaluate the visual direction before touching the working code. Once approved, every inline style in the component got remapped: dark slate backgrounds, muted blue accents, brighter status colors tuned for dark surfaces, Inter font via Google Fonts. The trickiest part was catching all the spots where dark-on-dark text became invisible — input fields, header text, section labels. These surfaced one by one through testing.
+
+**Landing page and custom domain.** I registered `restlessbuilder.com` through Cloudflare, set up DNS (four A records + a CNAME), and pointed it at GitHub Pages. The root site lives in a `kentuckyham.github.io` repo with a simple landing page, and the retirement explorer automatically serves from `/retirement-explorer` as a project sub-path. Total cost: ~$10/year for the domain.
+
+**AI analysis integration.** The app already had an optional Claude API integration for scenario analysis, but I moved it from the right panel into the left sidebar so it's always accessible regardless of which tab you're on. The prompt adapts based on context: on the Scenario Analysis tab it evaluates your withdrawal rate safety, bridge period risk, and benefits offset; on the Compare Methods tab it receives all 8 strategy results (including Monte Carlo data when available) and recommends which methods best fit your specific situation. I added a simple markdown renderer so the LLM output renders with proper headings, bold text, and lists instead of raw markdown characters.
+
+**Quality-of-life details.** A "Remember on this device" checkbox for the API key (localStorage with an opt-in toggle), auto-retry on API overload errors (up to 2 retries with backoff), and the response area only appears after you've clicked analyze — no empty placeholder wasting space.
+
+
 ## What I learned
 
-**Single-file architecture scales further than you'd think.** 1,300 lines in one file sounds unwieldy, but with clear section comments and a flat component structure, it remained navigable throughout. The zero-build-step feedback loop (edit → save → refresh) kept iteration fast.
+**Single-file architecture scales further than you'd think.** 1,400 lines in one file sounds unwieldy, but with clear section comments and a flat component structure, it remained navigable throughout. The zero-build-step feedback loop (edit → save → refresh) kept iteration fast.
 
 **The interesting bugs are conceptual, not syntactic.** The hardest problems weren't typos or React gotchas — they were things like "RMD shows 0% success rate" (because depleting on the final year is actually correct behavior, not failure) or "why does the chart show 6/8 methods surviving but the table says only 3/8 are safe?" (deterministic vs. stochastic framing). These required understanding the domain, not just the code.
 
@@ -91,9 +104,13 @@ The final round was about making the tool actually pleasant to use:
 
 **Monte Carlo and published research tell different stories for a reason.** They use different assumptions, different success definitions, different return distributions. Having both side by side — with a toggle — is more honest than picking one and presenting it as truth.
 
+**Design before implementation saves time.** Generating a static mockup of the dark theme before touching any React code meant I could evaluate (and reject or adjust) the visual direction in minutes. The alternative — restyling inline styles across 1,400 lines and then discovering you don't like the palette — would have been painful.
+
+**Deploying is easier than you think.** GitHub Pages + a Cloudflare domain took about 20 minutes end-to-end. The single-file architecture made it trivially deployable — no build artifacts, no CI pipeline, no server. Push to main and it's live.
+
 
 ## What's next
 
 The app is functional and I use it for my own planning. Possible extensions: adding tax-bracket-aware withdrawal sequencing, modeling Roth conversion ladders, or incorporating actual historical return sequences alongside the parametric Monte Carlo.
 
-The code is on GitHub at [kentuckyham/retirement-explorer](https://github.com/kentuckyham/retirement-explorer).
+Try it at [restlessbuilder.com/retirement-explorer](https://restlessbuilder.com/retirement-explorer). Code on [GitHub](https://github.com/kentuckyham/retirement-explorer).
