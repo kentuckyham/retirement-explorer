@@ -54,6 +54,7 @@
         spending:         100_000,
         retirementAge:         55,
         equityPct:             74,
+        inflation:            2.5,
         lifeExpectancy:        92,
         ssClaimAge:            70,
         ssBenefit:         53_000,
@@ -66,6 +67,7 @@
         spending:         150_000,
         retirementAge:         53,
         equityPct:             55,
+        inflation:            2.5,
         lifeExpectancy:        92,
         ssClaimAge:            70,
         ssBenefit:         53_000,
@@ -78,6 +80,7 @@
         spending:         200_000,
         retirementAge:         55,
         equityPct:             55,
+        inflation:            2.5,
         lifeExpectancy:        92,
         ssClaimAge:            70,
         ssBenefit:         53_000,
@@ -199,11 +202,11 @@
     // ── Strategy withdrawal functions ──
     // Each takes a state object and returns the withdrawal for that year.
     const WITHDRAW = {
-      fixed: (s) => s.initialWD * Math.pow(1.025, s.year - 1),
+      fixed: (s) => s.initialWD * Math.pow(1 + s.inflationRate, s.year - 1),
 
       forgo: (s) => {
         if (s.year === 1) return s.initialWD;
-        return s.lastReturn < 0 ? s.prevWD : s.prevWD * 1.025;
+        return s.lastReturn < 0 ? s.prevWD : s.prevWD * (1 + s.inflationRate);
       },
 
       rmd: (s) => {
@@ -213,7 +216,7 @@
 
       guardrails: (s) => {
         if (s.year === 1) return s.initialWD;
-        let wd = s.prevWD * 1.025;            // inflation-adjust
+        let wd = s.prevWD * (1 + s.inflationRate);  // inflation-adjust
         const rate = wd / s.portfolio;
         const initRate = s.initialWD / s.P0;
         if (rate > initRate * 1.2) wd *= 0.9;      // cut 10%
@@ -221,7 +224,7 @@
         return wd;
       },
 
-      decline: (s) => s.initialWD * Math.pow(0.98, s.year - 1),
+      decline: (s) => s.initialWD * Math.pow((1 + s.inflationRate) * 0.98, s.year - 1),
 
       endowment: (s) => {
         const pct = s.initialWD / s.P0;
@@ -246,7 +249,7 @@
     };
 
     // Run one trial: returns true if portfolio survives the full horizon
-    function mcTrial(methodId, startRate, horizon, equityPct, rng) {
+    function mcTrial(methodId, startRate, horizon, equityPct, inflationRate, rng) {
       const P0 = 1_000_000;
       const initialWD = (startRate / 100) * P0;
       const eq = equityPct / 100;
@@ -262,7 +265,7 @@
         if (portfolio <= 0) return false;
 
         const wd = Math.max(0, fn({
-          year: y, initialWD, P0, portfolio, prevWD, lastReturn, horizon, history,
+          year: y, initialWD, P0, portfolio, prevWD, lastReturn, horizon, history, inflationRate,
         }));
         portfolio -= wd;
         // Depleted mid-plan = failure; depleted on the final year = success
@@ -277,39 +280,39 @@
     }
 
     // Success rate for a given method + starting rate
-    function mcSuccessRate(methodId, startRate, horizon, equityPct, seed) {
+    function mcSuccessRate(methodId, startRate, horizon, equityPct, inflationRate, seed) {
       let ok = 0;
       for (let t = 0; t < MC.trials; t++) {
-        if (mcTrial(methodId, startRate, horizon, equityPct, mulberry32(seed + t * 7919))) ok++;
+        if (mcTrial(methodId, startRate, horizon, equityPct, inflationRate, mulberry32(seed + t * 7919))) ok++;
       }
       return ok / MC.trials;
     }
 
     // Binary search for max safe rate at 90% success
     // Returns { rate, capped } — capped=true means the strategy can sustain any rate (e.g. constant %)
-    function mcFindSafeRate(methodId, horizon, equityPct, seed) {
+    function mcFindSafeRate(methodId, horizon, equityPct, inflationRate, seed) {
       let lo = 0.5, hi = 15.0;
       // Check if even the ceiling succeeds — if so, the method can't deplete
-      if (mcSuccessRate(methodId, hi, horizon, equityPct, seed) >= MC.targetSuccess) {
+      if (mcSuccessRate(methodId, hi, horizon, equityPct, inflationRate, seed) >= MC.targetSuccess) {
         return { rate: hi, capped: true };
       }
       for (let i = 0; i < MC.searchIter; i++) {
         const mid = (lo + hi) / 2;
-        if (mcSuccessRate(methodId, mid, horizon, equityPct, seed) >= MC.targetSuccess) lo = mid;
+        if (mcSuccessRate(methodId, mid, horizon, equityPct, inflationRate, seed) >= MC.targetSuccess) lo = mid;
         else hi = mid;
       }
       return { rate: +lo.toFixed(2), capped: false };
     }
 
     // Run simulation for all 8 methods — returns { methodId: { safeRate, successRate, capped } }
-    function mcRunAll(horizon, equityPct) {
+    function mcRunAll(horizon, equityPct, inflationRate) {
       const seed = 42;
       const results = {};
       for (const m of METHODS) {
-        const { rate, capped } = mcFindSafeRate(m.id, horizon, equityPct, seed);
+        const { rate, capped } = mcFindSafeRate(m.id, horizon, equityPct, inflationRate, seed);
         results[m.id] = {
           safeRate: rate,
-          successRate: capped ? 1.0 : mcSuccessRate(m.id, rate, horizon, equityPct, seed),
+          successRate: capped ? 1.0 : mcSuccessRate(m.id, rate, horizon, equityPct, inflationRate, seed),
           capped,
         };
       }
@@ -320,7 +323,8 @@
     // PORTFOLIO PROJECTION (strategy-aware)
     // ─────────────────────────────────────────────────────────────────────────────
     function buildProjection(inputs, methodId = "fixed") {
-      const { portfolio, spending, retirementAge, lifeExpectancy, ssClaimAge, ssBenefit, cpp, oas, equityPct } = inputs;
+      const { portfolio, spending, retirementAge, lifeExpectancy, ssClaimAge, ssBenefit, cpp, oas, equityPct, inflation } = inputs;
+      const inflationRate = (inflation || 2.5) / 100;
       const totalBenefits = ssBenefit + cpp + oas;
       const years = lifeExpectancy - retirementAge;
       const bridge = ssClaimAge - retirementAge;
@@ -343,7 +347,7 @@
       for (let y = 1; y <= years; y++) {
         const age = retirementAge + y;
         const benefitsYear = age >= ssClaimAge
-          ? totalBenefits * Math.pow(1.025, age - ssClaimAge)
+          ? totalBenefits * Math.pow(1 + inflationRate, age - ssClaimAge)
           : 0;
 
         // At the SS transition year, insert a phantom point showing where
@@ -356,7 +360,7 @@
             if (s.bal === null) { phantom[key] = null; continue; }
             const grown = s.bal * (1 + r);
             const wdState = { year: y, initialWD: spending, P0: portfolio, portfolio: grown,
-              prevWD: s.prevWD, lastReturn: s.lastR, horizon: years, history: s.hist };
+              prevWD: s.prevWD, lastReturn: s.lastR, horizon: years, history: s.hist, inflationRate };
             const grossWD = Math.max(0, withdrawFn(wdState));
             const next = grown - grossWD;  // no benefit offset for phantom
             phantom[key] = next <= 0 ? 0 : next;
@@ -370,7 +374,7 @@
           if (s.bal === null) { point[key] = null; continue; }
           const grown = s.bal * (1 + r);
           const wdState = { year: y, initialWD: spending, P0: portfolio, portfolio: grown,
-            prevWD: s.prevWD, lastReturn: s.lastR, horizon: years, history: s.hist };
+            prevWD: s.prevWD, lastReturn: s.lastR, horizon: years, history: s.hist, inflationRate };
           const grossWD = Math.max(0, withdrawFn(wdState));
           const netWD = Math.max(0, grossWD - benefitsYear);
           const next = grown - netWD;
@@ -767,9 +771,10 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
         // Use setTimeout so the "Running…" state renders before the sync computation
         setTimeout(() => {
           try {
-            const results = mcRunAll(horizon, inp.equityPct);
+            const inflationRate = (inp.inflation || 2.5) / 100;
+            const results = mcRunAll(horizon, inp.equityPct, inflationRate);
             setMcResults(results);
-            setMcInputs({ equityPct: inp.equityPct, horizon });
+            setMcInputs({ equityPct: inp.equityPct, horizon, inflation: inp.inflation });
             setMcView("mc");
           } catch (err) {
             console.error("Monte Carlo error:", err);
@@ -781,7 +786,7 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
 
       // Check if MC results are stale (inputs changed since last run)
       const mcStale = mcResults && mcInputs &&
-        (mcInputs.equityPct !== inp.equityPct || mcInputs.horizon !== horizon);
+        (mcInputs.equityPct !== inp.equityPct || mcInputs.horizon !== horizon || mcInputs.inflation !== inp.inflation);
 
       // ── Render ──
       return (
@@ -890,6 +895,12 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
               <div style={{ fontSize: 10, color: "#64748b", marginTop: -8, marginBottom: 12, lineHeight: 1.4 }}>
                 Morningstar models two asset classes: equities ({(CMA.equity*100).toFixed(1)}% real) and
                 bonds ({(CMA.bond*100).toFixed(1)}% real). Cash is not modeled separately.
+              </div>
+              <Slider label="Assumed Inflation Rate" value={inp.inflation} onChange={v => set("inflation", v)}
+                min={0} max={6} step={0.1} fmt={v => `${v.toFixed(1)}%`} />
+              <div style={{ fontSize: 10, color: "#64748b", marginTop: -8, marginBottom: 12, lineHeight: 1.4 }}>
+                Affects inflation-linked strategies (Fixed Real, Forgo, Guardrails, Decline) and
+                government benefit growth. Higher inflation reduces purchasing power of fixed withdrawals.
               </div>
               <Slider label="Life Expectancy"   value={inp.lifeExpectancy} onChange={v => set("lifeExpectancy", v)} min={75}        max={100}        step={1}       fmt={v => v} />
               {horizon > 40 && (
