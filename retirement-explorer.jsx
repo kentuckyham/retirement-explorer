@@ -911,6 +911,12 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
                 ? "Analyzes your scenario: withdrawal safety, bridge risk, and benefits offset."
                 : "Compares all 8 strategies for your scenario and recommends the best fit."}
             </div>
+            <div style={{ fontSize: 10, color: "#f87171", lineHeight: 1.5, marginBottom: 10,
+              padding: "6px 10px", background: "rgba(248,113,113,0.06)", border: "1px solid rgba(248,113,113,0.15)",
+              borderRadius: 6 }}>
+              AI-generated analysis is for informational purposes only. It is not financial advice and does not
+              replace consultation with a qualified financial advisor.
+            </div>
             <label style={{ fontSize: 12, color: "#8892a8", fontWeight: 600, display: "block", marginBottom: 5 }}>
               Anthropic API Key
             </label>
@@ -1194,6 +1200,7 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
                 {mcResults && !mcStale && mcView === "mc"
                   ? " Rates computed via Monte Carlo simulation (1,000 trials, 90% success, seeded PRNG)."
                   : " Rates estimated via premium extrapolation from Morningstar\u2019s 30-year / 40% equity data."}
+                {" "}All rates are model outputs based on assumptions and do not guarantee actual portfolio performance.
               </p>
               {mcStale && mcView === "mc" && (
                 <div style={{ background: "rgba(251, 191, 36, 0.08)", border: "1px solid rgba(251, 191, 36, 0.2)", borderRadius: 6,
@@ -1404,6 +1411,19 @@ Be direct and specific. No boilerplate. Reference actual numbers. Do not give in
           </>}
 
         </div>
+      </div>
+
+      {/* Persistent legal disclaimer */}
+      <div style={{ marginTop: 12, padding: "14px 20px", background: "#0c0f1a",
+        border: "1px solid #1e2540", borderRadius: 10, fontSize: 11, color: "#64748b", lineHeight: 1.7, textAlign: "center" }}>
+        <strong style={{ color: "#8892a8" }}>Disclaimer:</strong>{" "}
+        This tool is for educational and informational purposes only. It does not constitute financial,
+        investment, tax, or legal advice. All projections, withdrawal rates, and simulation results are
+        based on simplified models and assumptions that may not reflect actual market conditions or your
+        personal financial situation. Past performance and modeled returns do not guarantee future results.
+        This tool is not a substitute for professional financial advice &mdash; consult a qualified
+        financial advisor before making any retirement or investment decisions. The creators of this tool
+        accept no liability for decisions made based on information provided here.
       </div>
     </div>
   );
